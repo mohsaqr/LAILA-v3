@@ -23,6 +23,8 @@ import { AssignmentSectionStudent } from '../components/course/AssignmentSection
 import { LessonViewer, SectionListEditor, type SectionListEditorHandle } from '../components/teach/lesson-editor';
 import { safeEmbedSrc } from '../components/teach/lesson-editor/EmbedNodeView';
 import { marked } from 'marked';
+import { PluginSlot } from '../plugins/PluginSlot';
+import { parsePluginKey } from '../plugins/keys';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
 import { TrackedContent } from '../components/common/TrackedContent';
 import activityLogger from '../services/activityLogger';
@@ -416,6 +418,21 @@ export const LectureView = () => {
         );
 
       default:
+        // A type this build does not know is either a plugin's block or a row
+        // from a newer version. `parsePluginKey` tells them apart, and
+        // PluginSlot renders its own notice when the plugin is gone — which is
+        // why an unknown non-plugin type still falls through to null.
+        if (parsePluginKey(section.type)) {
+          return (
+            <div key={section.id} className="mb-6">
+              <PluginSlot
+                extensionKey={section.type}
+                instance={{ kind: 'section', id: section.id }}
+                courseId={courseId ? Number(courseId) : null}
+              />
+            </div>
+          );
+        }
         return null;
     }
   };

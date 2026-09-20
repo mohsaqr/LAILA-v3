@@ -1145,5 +1145,8 @@
   "editor_theme_dark": "Dark",
   "enrollment_required_title": "Enroll to access this course",
   "enrollment_required_body": "This course’s content is available to enrolled students only. Enroll to view its modules, lectures and labs.",
-  "enter_course_code": "Enter course code"
+  "enter_course_code": "Enter course code",
+  "labs": "Labs",
+  "plugin_tool_missing": "This tool is not available. The plugin providing it may have been disabled or removed.",
+  "plugin_lab_missing": "This lab needs a plugin that is not currently available. Its saved work is untouched — ask an administrator to enable the plugin."
 }

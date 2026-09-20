@@ -12,6 +12,12 @@ import { AuthRequest } from '../types/index.js';
 import { courseExportService } from '../services/courseExport.service.js';
 import { courseImportService } from '../services/courseImport.service.js';
 import { COURSE_PACKAGE_EXTENSION } from '../services/coursePackage.schema.js';
+import {
+  parseSelection,
+  EXPORT_SECTIONS,
+  PERSONAL_DATA_SECTIONS,
+  DESIGN_SECTIONS,
+} from '../services/coursePackage.selection.js';
 
 const router = Router();
 
@@ -47,21 +53,69 @@ router.post(
   }),
 );
 
-/** Download a course as a package. */
+/**
+ * What this instance can put in an export, so the UI can build its checklist
+ * from the server's catalogue rather than a copy that drifts.
+ */
+router.get(
+  '/export/sections',
+  authenticateToken,
+  requireInstructor,
+  asyncHandler(async (_req: AuthRequest, res: Response) => {
+    res.json({
+      success: true,
+      data: {
+        sections: EXPORT_SECTIONS,
+        personal: PERSONAL_DATA_SECTIONS,
+        default: DESIGN_SECTIONS,
+      },
+    });
+  }),
+);
+
+/**
+ * Download a course as a package.
+ *
+ * `?include=design,grades` selects sections; `?include=all` takes everything;
+ * omitting it keeps the historical design-only behaviour, so existing links
+ * and bookmarks are unaffected. Sections covering other people's data are
+ * additionally gated inside the service on course-owner rights.
+ */
 router.get(
   '/:id/export',
   authenticateToken,
   requireInstructor,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const courseId = courseIdParam(req.params.id);
-    const { archive, fileName, missingFiles } = await courseExportService.streamZip(
+    let selection;
+    try {
+      selection = parseSelection(req.query.include);
+    } catch {
+      throw new AppError(
+        `Unknown export section. Valid sections: ${EXPORT_SECTIONS.join(', ')}`,
+        400,
+      );
+    }
+    const { archive, fileName, missingFiles, warnings } = await courseExportService.streamZip(
       courseId,
       req.user!.id,
       req.user!.isAdmin,
+      selection,
     );
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
     res.setHeader('X-Laila-Missing-Files', String(missingFiles.length));
+    // Lets a client confirm what it actually received without opening the zip.
+    res.setHeader('X-Laila-Sections', selection.join(','));
+    // A capped activity log is the main case: the download succeeds, but the
+    // caller needs to know it is not the whole history. Headers must be ASCII
+    // and single-line, so the text is sanitised rather than sent raw.
+    if (warnings.length) {
+      res.setHeader(
+        'X-Laila-Warnings',
+        warnings.map((w) => w.replace(/[^\x20-\x7E]/g, ' ')).join(' | ').slice(0, 900),
+      );
+    }
     archive.on('error', (err: Error) => {
       // Headers are already out; the only honest option is to cut the stream so
       // the client sees a broken download rather than a truncated "valid" zip.

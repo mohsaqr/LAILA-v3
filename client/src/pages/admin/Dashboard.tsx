@@ -9,6 +9,7 @@ import {
 import type { TNA, LayoutAlgorithm } from 'ladyna';
 import { activityLogApi } from '../../api/admin';
 import { useTheme } from '../../hooks/useTheme';
+import { PluginWidgets } from '../../plugins/PluginWidgets';
 import { AdminLayout, StatCard } from '../../components/admin';
 import { Loading } from '../../components/common/Loading';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
@@ -1440,6 +1441,11 @@ export const Dashboard = ({ mode = 'admin', fixedCourseId, fixedUserId, embedded
             t={t}
           />
         )}
+
+        {/* Panels contributed by installed plugins. Renders nothing when no
+            plugin provides a dashboard.widget, so an instance with no plugins
+            sees no change at all. */}
+        <PluginWidgets courseId={fixedCourseId ?? null} className="mt-6" />
     </Wrapper>
   );
 };

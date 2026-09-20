@@ -263,7 +263,7 @@ describe('duplicateCourse', () => {
     chatbotFindUnique.mockResolvedValue({ id: 7 });
     const pkg = minimalPackage();
     pkg.files = []; // nothing on disk in this test
-    vi.mocked(courseExportService.buildPackage).mockResolvedValue({ pkg, manifest: manifestStub, missingFiles: [] });
+    vi.mocked(courseExportService.buildPackage).mockResolvedValue({ pkg, manifest: manifestStub, missingFiles: [], warnings: [] });
     const report = await courseImportService.duplicateCourse(3, 42, false);
     expect(courseExportService.buildPackage).toHaveBeenCalledWith(3, 42, false);
     expect(report.title).toBe('Learning Analytics 101 (copy)');

@@ -1,9 +1,17 @@
 import { useTranslation } from 'react-i18next';
-import { Plus, Type, FileUp, Bot } from 'lucide-react';
+import { Plus, Type, FileUp, Bot, Puzzle } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
 import type { LectureSection } from '../../../types';
+import { usePluginExtensions } from '../../../plugins/usePluginExtensions';
 
-type InsertableType = Extract<LectureSection['type'], 'text' | 'file' | 'chatbot'>;
+type BuiltinInsertableType = Extract<LectureSection['type'], 'text' | 'file' | 'chatbot'>;
+
+/**
+ * What the inserter can add: one of the three built-in block types, or a
+ * plugin's `plugin:<id>:<ext>` key. A plain string union rather than a
+ * closed enum, because the set of plugin blocks is only known at runtime.
+ */
+export type InsertableType = BuiltinInsertableType | (string & {});
 
 interface InlineInserterProps {
   onInsert: (type: InsertableType) => void;
@@ -21,6 +29,11 @@ export const InlineInserter = ({ onInsert, omitText = false }: InlineInserterPro
   const { isDark } = useTheme();
 
   const muted = isDark ? '#9ca3af' : '#6b7280';
+
+  // Plugin blocks appear beside the built-ins, so adding one is the same
+  // gesture as adding a Text block rather than a separate concept the teacher
+  // has to go looking for.
+  const pluginBlocks = usePluginExtensions('lecture.block');
 
   const allItems: Array<{ type: InsertableType; icon: typeof Type; label: string; color: string; bg: string }> = [
     {
@@ -44,6 +57,13 @@ export const InlineInserter = ({ onInsert, omitText = false }: InlineInserterPro
       color: isDark ? '#c4b5fd' : '#7c3aed',
       bg: isDark ? 'rgba(167,139,250,0.10)' : '#faf5ff',
     },
+    ...pluginBlocks.map(ext => ({
+      type: ext.key as InsertableType,
+      icon: Puzzle,
+      label: ext.label,
+      color: isDark ? '#fcd34d' : '#b45309',
+      bg: isDark ? 'rgba(251,191,36,0.10)' : '#fffbeb',
+    })),
   ];
   const items = omitText ? allItems.filter(i => i.type !== 'text') : allItems;
 

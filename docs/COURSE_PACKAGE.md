@@ -14,9 +14,55 @@ secrets are never part of it.
 Export needs edit rights on the course (owner, co-instructor, course admin, or
 global admin). Import and duplicate need the instructor role.
 
+## Choosing what travels
+
+An export carries the **sections you select**. Omitting the selection keeps the
+historical behaviour exactly — design only, no student data — so every existing
+link, script and bookmark is unaffected.
+
+```
+GET /api/courses/:id/export                      design only (the default)
+GET /api/courses/:id/export?include=all          everything
+GET /api/courses/:id/export?include=design,grades
+GET /api/courses/export/sections                 what this instance offers
+```
+
+| Section | Carries |
+|---|---|
+| `design` | Course settings, modules, lectures, sections. **Always included.** |
+| `assessments` | Assignments, quizzes, surveys, rubrics |
+| `labs` | Code labs, custom labs and their cells |
+| `tutors` | Course tutors and the chatbots behind them |
+| `forums` | Forum settings and staff-opened threads |
+| `files` | Every upload the above refers to |
+| `plugins` | Installed plugins' per-course config and block data |
+| **`enrollments`** | Who is enrolled, with role and date |
+| **`submissions`** | Assignment submissions and their attachments |
+| **`grades`** | Grades, quiz attempts, survey responses |
+| **`progress`** | Per-student lecture and module completion |
+| **`discussions`** | Student-opened threads and every reply |
+| **`conversations`** | Tutor and chatbot transcripts |
+| **`activity`** | The learning activity log for this course |
+
+The **bold** sections disclose data belonging to someone other than the
+exporter. They are opt-in, and they require **course-owner or platform-admin**
+rights — deliberately *not* merely edit rights, so a co-instructor or TA can
+take the course design elsewhere without being able to walk off with every
+student's submissions and transcripts.
+
+Two conveniences the selection applies for you: `design` is always added (a
+package of submissions with no idea what they were submitted to is unusable),
+and selecting `submissions` or `discussions` pulls in `files`, because
+otherwise their attachments would import as a wall of broken links.
+
+The manifest records the selection, so an importer can state what it is about to
+add, and an admin can tell whether an old archive holds personal data without
+unpacking it. Packages written before selections existed validate unchanged;
+an absent `selection` means design-only, which is exactly what they hold.
+
 ## What travels
 
-Everything an instructor authored:
+With the default (design-only) selection, everything an instructor authored:
 
 - course settings (title, description, thumbnail, difficulty, visibility,
   tutor routing, labs enabled, view mode, start time), categories
@@ -37,6 +83,23 @@ tutor conversations, activity logs, announcements, course prerequisites
 (they point at another course), the activation code (a signup sponsorship in a
 global namespace), API keys and LLM provider rows. Slide images rendered from a
 .pptx are a cache and are regenerated on first view after import.
+
+## What happens on import with personal data
+
+People are matched **by email**. A matched person's rows are written; an
+unmatched person's rows are skipped and their address listed in the report, so
+the importer can invite them and re-import. Nothing else about a matched user
+changes — importing enrollments enrolls them, and that is the only side effect.
+
+Two details worth knowing:
+
+- **Anonymity survives.** A thread or survey response exported anonymously
+  carries no person at all, so it cannot be de-anonymised by importing it. An
+  anonymous thread is attributed to the course owner in the author column, with
+  its anonymous flag intact — exactly how LAILA already stores one.
+- **Threading survives.** Discussion posts are written parents-first and their
+  `parentId` rewired to the new ids. A reply whose parent was skipped becomes
+  top-level rather than being dropped: losing the nesting beats losing the post.
 
 ## What happens on import
 
@@ -83,7 +146,8 @@ they were on the exporting instance; the `files` list maps each to its blob.
   "formatVersion": 1,
   "exportedAt": "2026-09-04T18:28:08.169Z",
   "exporter": { "application": "LAILA", "version": "3.13.0" },
-  "source": { "courseId": 4, "slug": "pedagogy-science-art-teaching", "title": "Pedagogy…" }
+  "source": { "courseId": 4, "slug": "pedagogy-science-art-teaching", "title": "Pedagogy…" },
+  "selection": ["design", "assessments", "labs", "tutors", "forums", "files", "plugins"]
 }
 ```
 
@@ -95,7 +159,8 @@ gains a migration step.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| `GET` | `/api/courses/:id/export` | – | `application/zip`; header `X-Laila-Missing-Files` counts referenced uploads no longer on disk |
+| `GET` | `/api/courses/export/sections` | – | the section catalogue this instance offers |
+| `GET` | `/api/courses/:id/export?include=…` | – | `application/zip`; headers `X-Laila-Missing-Files` (referenced uploads no longer on disk), `X-Laila-Sections` (what was actually included) and `X-Laila-Warnings` (e.g. a capped activity log) |
 | `POST` | `/api/courses/import` | multipart, field `package` (the zip), optional `title` | `201` import report |
 | `POST` | `/api/courses/:id/duplicate` | optional JSON `{ "title" }` | `201` import report |
 
@@ -106,6 +171,8 @@ Uploads are capped at 512 MB and read into memory by the zip parser.
 | Concern | File |
 |---|---|
 | Schema, types, reference check | `server/src/services/coursePackage.schema.ts` |
+| Export sections and the personal-data line | `server/src/services/coursePackage.selection.ts` |
+| Personal-data serialisers (the roster, all 7 sections) | `server/src/services/coursePackage.personal.ts` |
 | Export (graph → package → zip) | `server/src/services/courseExport.service.ts` |
 | Import, duplicate | `server/src/services/courseImport.service.ts` |
 | Upload URL helpers | `server/src/utils/uploadFiles.ts` |
@@ -116,8 +183,20 @@ Uploads are capped at 512 MB and read into memory by the zip parser.
 
 ## Known limits
 
-- Export/import is design-only. Moving a running course with its students is a
-  database restore (`deploy/backup/laila-restore.sh`), not a package.
+- **An import never creates a user.** People travel as a roster keyed by email;
+  the importer matches against existing accounts and skips rows belonging to
+  anyone this instance does not know, reporting their addresses. Invite them,
+  then re-import. (If a package could mint accounts, a crafted roster would be
+  an account-creation primitive for anyone allowed to import.)
+- An imported activity log drops `eventUuid`, because that column is unique per
+  user and these rows are a copy, not the originals. The log is also capped at
+  200,000 rows per package — the newest are kept and the shortfall is reported
+  in `X-Laila-Warnings`.
+- A full archive is still not a substitute for a database restore
+  (`deploy/backup/laila-restore.sh`): it moves one course, not an instance.
+- A plugin contributes to the `plugins` section through the
+  `course.export.data` filter; a plugin that does not register one exports
+  nothing of its own. See `docs/PLUGINS.md`.
 - A tutor's chatbot is matched by name only. If the target instance has a
   different chatbot under the same name, the tutor is built on that one.
 - Model names in chatbot definitions (`modelPreference`) travel verbatim; the

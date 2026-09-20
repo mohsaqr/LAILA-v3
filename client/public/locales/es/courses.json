@@ -1142,5 +1142,8 @@
   "editor_theme_dark": "Oscuro",
   "enrollment_required_title": "Inscríbete para acceder a este curso",
   "enrollment_required_body": "El contenido de este curso está disponible solo para estudiantes inscritos. Inscríbete para ver sus módulos, clases y laboratorios.",
-  "enter_course_code": "Introduce el código del curso"
+  "enter_course_code": "Introduce el código del curso",
+  "labs": "Laboratorios",
+  "plugin_tool_missing": "Esta herramienta no está disponible. Es posible que el complemento que la proporciona se haya desactivado o eliminado.",
+  "plugin_lab_missing": "Este laboratorio necesita un complemento que no está disponible actualmente. El trabajo guardado permanece intacto: pide a una persona administradora que active el complemento."
 }

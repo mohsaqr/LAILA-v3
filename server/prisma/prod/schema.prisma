@@ -61,6 +61,8 @@ model User {
   datasets                    UserDataset[]
   oidcAuthCodes               OidcAuthCode[]
   sentInvitations             Invitation[]              @relation("SentInvitations")
+  installedPlugins            Plugin[]                  @relation("PluginInstaller")
+  pluginData                  PluginData[]
 
   @@index([status])
   @@map("users")
@@ -512,6 +514,7 @@ model Course {
   certificates               Certificate[]
   tutorSessions              TutorSession[]
   invitations                Invitation[]
+  pluginData                 PluginData[]
 
   @@index([instructorId])
   @@index([status])
@@ -2177,4 +2180,122 @@ model RubricCriterion {
 
   @@index([rubricId])
   @@map("rubric_criteria")
+}
+
+// ---------------------------------------------------------------------------
+// Plugins
+//
+// A plugin's *code* lives on disk under PLUGIN_DIR/<id>/; these tables hold
+// what the database must own: which plugins exist, whether they are enabled,
+// which of their migrations have run, and the data they store.
+//
+// `Plugin.id` is the manifest id (reverse-DNS), not an autoincrement. It is a
+// genuine natural key — it is what a bundle, a URL path, a SQL table prefix
+// and a content row's `plugin:<id>:<ext>` type all already carry, and a
+// surrogate would mean a join on every render of every plugin block.
+// ---------------------------------------------------------------------------
+
+model Plugin {
+  id            String   @id
+  name          String
+  version       String
+  apiVersion    Int      @map("api_version")
+  description   String?
+  authorName    String?  @map("author_name")
+  homepage      String?
+  /// The full validated manifest, verbatim, as JSON. The loader re-parses this
+  /// rather than re-reading from disk so a tampered bundle cannot quietly gain
+  /// a capability between install and boot.
+  manifest      String
+  /// Denormalised from the manifest so an audit ("what runs with grades:write?")
+  /// is one query instead of 80 JSON parses. JSON array of strings.
+  capabilities  String   @default("[]")
+  /// Instance-wide settings, keyed by the manifest's `settings[].key`.
+  settings      String?
+  enabled       Boolean  @default(false)
+  /// active | disabled | error | incompatible. `error` means the last load or
+  /// hook failed; `incompatible` means the host version left its `laila` range.
+  status        String   @default("disabled")
+  lastError     String?  @map("last_error")
+  lastErrorAt   DateTime? @map("last_error_at")
+  errorCount    Int      @default(0) @map("error_count")
+  /// SHA-256 of the installed bundle. Recorded at install and re-checked on
+  /// upgrade, so a changed bundle is a visible event rather than a silent one.
+  bundleHash    String   @map("bundle_hash")
+  installedById Int?     @map("installed_by_id")
+  installedAt   DateTime @default(now()) @map("installed_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  installedBy   User?    @relation("PluginInstaller", fields: [installedById], references: [id], onDelete: SetNull)
+
+  migrations PluginMigration[]
+  store      PluginStore[]
+  data       PluginData[]
+
+  @@index([enabled])
+  @@index([status])
+  @@map("plugins")
+}
+
+model PluginMigration {
+  id        Int      @id @default(autoincrement())
+  pluginId  String   @map("plugin_id")
+  /// The migration filename without its dialect suffix, e.g. "001_init".
+  name      String
+  /// SHA-256 of the SQL that ran. A changed checksum on an applied migration
+  /// is refused: editing shipped history silently diverges every instance.
+  checksum  String
+  appliedAt DateTime @default(now()) @map("applied_at")
+  plugin    Plugin   @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, name])
+  @@map("plugin_migrations")
+}
+
+model PluginStore {
+  id        Int      @id @default(autoincrement())
+  pluginId  String   @map("plugin_id")
+  /// global | course | user | section | lab — what `scopeId` counts in.
+  scope     String   @default("global")
+  /// 0 for the global scope, so the unique index never sees a NULL (Postgres
+  /// treats NULLs as distinct, which would let duplicate keys through).
+  scopeId   Int      @default(0) @map("scope_id")
+  key       String
+  /// JSON. SQLite has no JSON column type and the prod schema is mirrored to
+  /// it for local dev, so every JSON-ish column in this schema is a string.
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+  plugin    Plugin   @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, scope, scopeId, key])
+  @@index([pluginId, scope, scopeId])
+  @@map("plugin_store")
+}
+
+model PluginData {
+  id          Int      @id @default(autoincrement())
+  pluginId    String   @map("plugin_id")
+  /// Which extension inside the plugin this row belongs to.
+  extensionId String   @map("extension_id")
+  userId      Int      @map("user_id")
+  courseId    Int?     @map("course_id")
+  /// Which *instance* of the extension: "section:91", "lab:12", "tool:reports".
+  /// A single opaque string rather than nullable sectionId/labId/... columns,
+  /// so the uniqueness below is one index that Postgres and SQLite agree on.
+  instanceKey String   @map("instance_key")
+  /// JSON. Whatever the plugin passed to `laila.setState()`.
+  data        String   @default("{}")
+  score       Float?
+  maxScore    Float?   @map("max_score")
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  plugin      Plugin   @relation(fields: [pluginId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course      Course?  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([pluginId, userId, instanceKey])
+  @@index([pluginId, courseId])
+  @@index([userId])
+  @@index([courseId, extensionId])
+  @@map("plugin_data")
 }

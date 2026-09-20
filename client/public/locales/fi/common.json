@@ -54,7 +54,7 @@
   "active": "Aktiivinen",
   "inactive": "Ei aktiivinen",
   "pending": "Odottaa",
-  "completed": "Valmis",
+  "completed": "Suoritetut",
   "in_progress": "Käynnissä",
   "draft": "Luonnos",
   "published": "Julkaistu",
@@ -107,7 +107,6 @@
   "courses": "Kurssit",
   "settings": "Asetukset",
   "dashboard": "Kojelauta",
-
   "status_draft": "Luonnos",
   "status_published": "Julkaistu",
   "status_archived": "Arkistoitu",
@@ -118,12 +117,10 @@
   "status_completed": "Valmis",
   "status_pending": "Odottaa",
   "status_not_started": "Ei aloitettu",
-
   "theme_dark": "Tumma",
   "theme_light": "Vaalea",
   "theme_label": "Teema: {{theme}}",
   "theme_aria_label": "Nykyinen teema: {{theme}}. Napsauta vaihtaaksesi.",
-
   "emotion_productive": "Tuottava",
   "emotion_stimulated": "Innostunut",
   "emotion_frustrated": "Turhautunut",
@@ -133,10 +130,8 @@
   "emotion_quitting": "Luovuttava",
   "how_are_you_feeling": "Miltä sinusta tuntuu?",
   "thanks_for_sharing": "Kiitos jakamisesta!",
-
   "skip_to_main_content": "Siirry pääsisältöön",
   "skip_to_navigation": "Siirry navigointiin",
-
   "something_went_wrong": "Jotain meni pieleen",
   "error_boundary_message": "Pahoittelemme, jotain odottamatonta tapahtui. Yritä päivittää sivu tai palaa etusivulle.",
   "try_again": "Yritä uudelleen",
@@ -176,10 +171,8 @@
   "keep_the_streak_going": "Pidä putki kasassa.",
   "nothing_in_progress": "Ei käynnissä olevaa",
   "you_have_x_deadlines_this_week": "Sinulla on {{count}} määräaika tällä viikolla.",
-  "dashboard": "Kojelauta",
   "platform_active_summary": "{{users}} uutta rekisteröitymistä ja {{activity}} tapahtumaa viime 7 päivän aikana.",
   "active_courses": "Aktiiviset kurssit",
-  "completed": "Suoritetut",
   "this_week": "Tällä viikolla",
   "student_engagement_30d": "Opiskelijoiden aktiivisuus — viimeiset 30 päivää",
   "events": "tapahtumaa",
@@ -212,5 +205,7 @@
   "continue": "Jatka",
   "clear_all": "Tyhjennä kaikki",
   "showing_range": "Näytetään {{from}}–{{to}} / {{total}}",
-  "duplicate": "Monista"
+  "duplicate": "Monista",
+  "plugin_unavailable": "Tämä sisältö vaatii lisäosan, joka ei ole tällä hetkellä käytettävissä.",
+  "plugin_widgets": "Lisäosien paneelit"
 }

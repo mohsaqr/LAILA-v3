@@ -207,5 +207,7 @@
   "showing_range": "Showing {{from}}–{{to}} of {{total}}",
   "visible": "Visible",
   "change": "Change",
-  "duplicate": "Duplicate"
+  "duplicate": "Duplicate",
+  "plugin_unavailable": "This content needs a plugin that is not currently available.",
+  "plugin_widgets": "Plugin panels"
 }

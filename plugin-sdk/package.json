@@ -1,0 +1,9 @@
+{
+  "name": "@laila/plugin-sdk",
+  "version": "1.0.0",
+  "description": "Build tooling and types for LAILA plugins",
+  "type": "module",
+  "bin": { "laila-plugin": "./src/build.mjs" },
+  "exports": { ".": "./src/build.mjs" },
+  "dependencies": { "esbuild": "^0.20.0", "jszip": "^3.10.1" }
+}

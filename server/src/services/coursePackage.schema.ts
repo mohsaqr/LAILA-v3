@@ -25,6 +25,7 @@
  * written; the TypeScript types are inferred from it so the two cannot drift.
  */
 import { z } from 'zod';
+import { exportSectionSchema } from './coursePackage.selection.js';
 
 export const COURSE_PACKAGE_FORMAT = 'laila-course';
 export const COURSE_PACKAGE_VERSION = 1;
@@ -52,6 +53,13 @@ export const packageLectureAttachmentSchema = z.object({
 });
 
 export const packageSectionSchema = z.object({
+  /**
+   * Stable handle for this section inside the package, so a chatbot
+   * conversation can say which section it belongs to. Optional: packages
+   * written before the personal-data sections existed have none, and nothing
+   * in the design half references it.
+   */
+  key: key.optional(),
   title: optText,
   type: text,
   content: optText,
@@ -258,6 +266,8 @@ export const packageLabAssignmentSchema = z.object({
 
 /** Forum settings plus the staff-authored opening post. Student threads stay behind. */
 export const packageForumSchema = z.object({
+  /** Stable handle, so `discussions.posts` can name the thread they reply to. */
+  key: key.optional(),
   moduleKey: key.nullable(),
   title: text,
   content: text,
@@ -339,6 +349,217 @@ export const packageCourseSchema = z.object({
   startTime: isoDate,
 });
 
+
+// ---------------------------------------------------------------------------
+// Personal data
+//
+// Everything below describes what STUDENTS did, not what an instructor
+// authored. It travels only when the matching export section is selected, and
+// only for an exporter with course-owner rights (see
+// `coursePackage.selection.ts` and `assertMayExport`).
+//
+// Two rules shape these shapes:
+//
+//   1. **People are referenced by `userKey`, resolved through `people`.**
+//      A database id is meaningless on another instance, so the roster carries
+//      the email — a natural key that survives the move. The importer matches
+//      on it and NEVER creates an account: a package that could mint users
+//      would be a privilege-escalation vector, and an unmatched row is simply
+//      reported.
+//   2. **Each section stands alone.** `grades` carries assignment grades even
+//      when `submissions` was not selected, so ticking one box never silently
+//      depends on another.
+// ---------------------------------------------------------------------------
+
+/** One person a personal row can point at. */
+export const packagePersonSchema = z.object({
+  key,
+  /** The natural key across instances; how the importer matches. */
+  email: text,
+  fullname: text,
+  /** Course role at export time. Informational — never used to grant anything. */
+  role: optText,
+});
+
+export const packageEnrollmentSchema = z.object({
+  userKey: key,
+  status: text,
+  progress: z.number(),
+  enrolledAt: isoDate,
+  completedAt: isoDate,
+  lastAccessAt: isoDate,
+});
+
+export const packageLectureProgressSchema = z.object({
+  userKey: key,
+  lectureKey: key,
+  isCompleted: z.boolean(),
+  completedAt: isoDate,
+  timeSpent: z.number().int(),
+});
+
+export const packageSubmissionSchema = z.object({
+  userKey: key,
+  assignmentKey: key,
+  content: optText,
+  /** JSON array of upload URLs; the blobs travel in `files`. */
+  fileUrls: optText,
+  status: text,
+  submittedAt: isoDate,
+});
+
+/**
+ * An assignment grade, separate from the submission body on purpose: selecting
+ * `grades` without `submissions` is a legitimate thing to want (a gradebook
+ * export), and it must not silently lose the assignment marks.
+ */
+export const packageAssignmentGradeSchema = z.object({
+  userKey: key,
+  assignmentKey: key,
+  grade: z.number().nullable(),
+  feedback: optText,
+  aiFeedback: optText,
+  gradedAt: isoDate,
+  /** The grader, when they are in `people`; null for a grader outside the course. */
+  gradedByKey: key.nullable(),
+});
+
+/**
+ * Answers reference a question by its **position** in the exported quiz's
+ * `questions` array. Questions carry no key of their own, and position is
+ * deterministic because the exporter emits them ordered by `orderIndex`.
+ */
+export const packageQuizAnswerSchema = z.object({
+  questionIndex: z.number().int().nonnegative(),
+  answer: optText,
+  isCorrect: z.boolean().nullable(),
+  pointsAwarded: z.number().nullable(),
+});
+
+export const packageQuizAttemptSchema = z.object({
+  userKey: key,
+  quizKey: key,
+  attemptNumber: z.number().int(),
+  startedAt: isoDate,
+  submittedAt: isoDate,
+  score: z.number().nullable(),
+  pointsEarned: z.number().nullable(),
+  pointsTotal: z.number().nullable(),
+  timeTaken: z.number().int().nullable(),
+  status: text,
+  answers: z.array(packageQuizAnswerSchema),
+});
+
+export const packageSurveyAnswerSchema = z.object({
+  questionIndex: z.number().int().nonnegative(),
+  answerValue: text,
+});
+
+export const packageSurveyResponseSchema = z.object({
+  /** Null for a response to an anonymous survey — there is no one to name. */
+  userKey: key.nullable(),
+  surveyKey: key,
+  moduleKey: key.nullable(),
+  context: text,
+  completedAt: isoDate,
+  answers: z.array(packageSurveyAnswerSchema),
+});
+
+/**
+ * A discussion thread opened by a student. Staff-opened threads travel in the
+ * `forums` section instead, because they are course design.
+ */
+export const packageDiscussionThreadSchema = z.object({
+  key,
+  moduleKey: key.nullable(),
+  /** Null when the thread was posted anonymously. */
+  authorKey: key.nullable(),
+  title: text,
+  content: text,
+  isPinned: z.boolean(),
+  isLocked: z.boolean(),
+  isAnonymous: z.boolean(),
+  viewCount: z.number().int(),
+  createdAt: isoDate,
+});
+
+export const packageDiscussionPostSchema = z.object({
+  key,
+  /** The thread, whether it came from `forums` (staff) or `discussions`. */
+  threadKey: key,
+  /** Another post in the same package, for a threaded reply. */
+  parentKey: key.nullable(),
+  authorKey: key.nullable(),
+  content: text,
+  isAnonymous: z.boolean(),
+  isEdited: z.boolean(),
+  isAiGenerated: z.boolean(),
+  aiAgentName: optText,
+  createdAt: isoDate,
+});
+
+export const packageConversationMessageSchema = z.object({
+  role: text,
+  content: text,
+  createdAt: isoDate,
+});
+
+export const packageConversationSchema = z.object({
+  /** Which surface the conversation happened on. */
+  kind: z.enum(['chatbot-section', 'course-tutor']),
+  userKey: key,
+  /** Set for `chatbot-section`; resolves against a section's `key`. */
+  sectionKey: key.nullable(),
+  /** Set for `course-tutor`; resolves against `tutors`. */
+  tutorKey: key.nullable(),
+  title: optText,
+  createdAt: isoDate,
+  messages: z.array(packageConversationMessageSchema),
+});
+
+/**
+ * One learning-activity row.
+ *
+ * The denormalised titles (`courseTitle`, `lectureTitle`, …) are kept as they
+ * were written: they are what the row MEANT at the time, and re-deriving them
+ * from the imported course would quietly rewrite history.
+ */
+export const packageActivityLogSchema = z.object({
+  userKey: key,
+  sessionId: optText,
+  verb: text,
+  objectType: text,
+  objectTitle: optText,
+  objectSubtype: optText,
+  courseTitle: optText,
+  moduleTitle: optText,
+  lectureTitle: optText,
+  sectionTitle: optText,
+  success: z.boolean().nullable(),
+  score: z.number().nullable(),
+  maxScore: z.number().nullable(),
+  progress: z.number().nullable(),
+  duration: z.number().int().nullable(),
+  extensions: optText,
+  timestamp: isoDate,
+  deviceType: optText,
+  browserName: optText,
+  actionSubtype: optText,
+  eventUuid: optText,
+  route: optText,
+});
+
+export const packageGradesSchema = z.object({
+  assignments: z.array(packageAssignmentGradeSchema),
+  quizAttempts: z.array(packageQuizAttemptSchema),
+  surveyResponses: z.array(packageSurveyResponseSchema),
+});
+
+export const packageDiscussionsSchema = z.object({
+  threads: z.array(packageDiscussionThreadSchema),
+  posts: z.array(packageDiscussionPostSchema),
+});
+
 export const coursePackageSchema = z.object({
   course: packageCourseSchema,
   categories: z.array(text),
@@ -352,12 +573,34 @@ export const coursePackageSchema = z.object({
   tutors: z.array(packageTutorSchema),
   rubrics: z.array(packageRubricSchema),
   files: z.array(packageFileSchema),
+
+  // Personal data. Every one is optional, so a package written before these
+  // existed — and every design-only package written after — validates
+  // unchanged. Absent and empty mean the same thing: nothing to import.
+  people: z.array(packagePersonSchema).optional(),
+  enrollments: z.array(packageEnrollmentSchema).optional(),
+  lectureProgress: z.array(packageLectureProgressSchema).optional(),
+  submissions: z.array(packageSubmissionSchema).optional(),
+  grades: packageGradesSchema.optional(),
+  discussions: packageDiscussionsSchema.optional(),
+  conversations: z.array(packageConversationSchema).optional(),
+  activity: z.array(packageActivityLogSchema).optional(),
 });
 
 export const packageManifestSchema = z.object({
   format: z.literal(COURSE_PACKAGE_FORMAT),
   formatVersion: z.number().int().positive(),
   exportedAt: z.string().datetime({ offset: true }),
+  /**
+   * Which sections this package actually carries.
+   *
+   * Optional so every package written before selections existed still
+   * validates; absent means the design-only set, which is exactly what those
+   * packages hold. Recording it lets the importer state what it is about to
+   * add, and lets an admin tell whether an old archive holds personal data
+   * without unpacking it.
+   */
+  selection: z.array(exportSectionSchema).optional(),
   exporter: z.object({
     application: z.string(),
     version: z.string(),

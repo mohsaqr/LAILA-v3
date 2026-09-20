@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 import { useLanguageStore } from './store/languageStore';
 import analytics from './services/analytics';
+import { loadClientPlugins } from './plugins/loader';
 
 // Legacy route redirect components for backward compatibility
 const LegacyQuizRedirect = () => {
@@ -148,6 +149,8 @@ import {
   Dashboard as AdminDashboard_Analytics,
 } from './pages/admin';
 import { PromptBlocksManagement } from './pages/admin/PromptBlocksManagement';
+import { PluginsAdmin } from './pages/admin/PluginsAdmin';
+import { PluginToolPage } from './pages/PluginToolPage';
 
 // User pages
 import { Profile } from './pages/Profile';
@@ -172,6 +175,19 @@ function App() {
   useEffect(() => {
     document.documentElement.dir = direction;
   }, [direction]);
+
+  // Load installed plugins' client halves once the user is signed in. The
+  // manifest endpoint requires a token, and an anonymous visitor on the login
+  // page has no plugin content to render anyway.
+  //
+  // Deliberately fire-and-forget: loadClientPlugins never rejects, and the app
+  // must render whether or not a third-party bundle is reachable. Blocks appear
+  // as their plugins finish loading, because PluginSlot subscribes to the
+  // registry rather than reading it once.
+  useEffect(() => {
+    if (!token) return;
+    void loadClientPlugins();
+  }, [token]);
 
   useEffect(() => {
     // Initialize analytics tracking
@@ -491,6 +507,16 @@ function App() {
         />
 
         {/* Course-scoped forums list (student) */}
+        {/* A plugin's course.tool extension. `t` keeps the segment short and
+            cannot collide with a built-in course sub-page. */}
+        <Route
+          path="/courses/:courseId/t/:toolPath"
+          element={
+            <ProtectedRoute>
+              <PluginToolPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/courses/:courseId/forums"
           element={
@@ -1012,6 +1038,14 @@ function App() {
 
         {/* Admin routes — /admin frontpage now lives at /dashboard for admins */}
         <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+        <Route
+          path="/admin/plugins"
+          element={
+            <ProtectedRoute requireAdmin>
+              <PluginsAdmin />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/admin/settings"
           element={

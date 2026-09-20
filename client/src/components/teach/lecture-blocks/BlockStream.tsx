@@ -13,10 +13,14 @@ import { TextBlock } from './TextBlock';
 import { FileBlock } from './FileBlock';
 import { ChatbotBlock } from './ChatbotBlock';
 import { LegacyBlock } from './LegacyBlock';
+import { PluginSlot } from '../../../plugins/PluginSlot';
+import { parsePluginKey } from '../../../plugins/keys';
 import { BlockShell } from './BlockShell';
 import { InlineInserter } from './InlineInserter';
 
-type InsertableType = 'text' | 'file' | 'chatbot';
+// Re-exported from the inserter, which widened it to include plugin block
+// keys (`plugin:<id>:<ext>`) now that the set is only known at runtime.
+import type { InsertableType } from './InlineInserter';
 
 interface BlockStreamProps {
   lectureId: number;
@@ -262,6 +266,18 @@ export const BlockStream = ({ lectureId, initialSections }: BlockStreamProps) =>
           />
         );
       default:
+        // Plugin-provided block: render the plugin's authoring view (or its
+        // student view when it ships no editor). Anything else stays on the
+        // legacy path, so no existing section type changes behaviour.
+        if (parsePluginKey(section.type)) {
+          return (
+            <PluginSlot
+              extensionKey={section.type}
+              instance={{ kind: 'section', id: section.id }}
+              editing
+            />
+          );
+        }
         return <LegacyBlock section={section} />;
     }
   };

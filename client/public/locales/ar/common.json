@@ -107,7 +107,6 @@
   "courses": "الدورات",
   "settings": "الإعدادات",
   "dashboard": "لوحة التحكم",
-
   "status_draft": "مسودة",
   "status_published": "منشور",
   "status_archived": "مؤرشف",
@@ -118,12 +117,10 @@
   "status_completed": "مكتمل",
   "status_pending": "قيد الانتظار",
   "status_not_started": "لم يبدأ",
-
   "theme_dark": "داكن",
   "theme_light": "فاتح",
   "theme_label": "المظهر: {{theme}}",
   "theme_aria_label": "المظهر الحالي: {{theme}}. انقر للتبديل.",
-
   "emotion_productive": "منتج",
   "emotion_stimulated": "متحمس",
   "emotion_frustrated": "محبط",
@@ -133,10 +130,8 @@
   "emotion_quitting": "مستسلم",
   "how_are_you_feeling": "كيف تشعر؟",
   "thanks_for_sharing": "شكراً للمشاركة!",
-
   "skip_to_main_content": "انتقل إلى المحتوى الرئيسي",
   "skip_to_navigation": "انتقل إلى التنقل",
-
   "something_went_wrong": "حدث خطأ ما",
   "error_boundary_message": "نأسف، حدث شيء غير متوقع. يرجى محاولة تحديث الصفحة أو العودة إلى الصفحة الرئيسية.",
   "try_again": "حاول مرة أخرى",
@@ -176,10 +171,8 @@
   "keep_the_streak_going": "حافظ على وتيرتك.",
   "nothing_in_progress": "لا شيء قيد التقدم بعد",
   "you_have_x_deadlines_this_week": "لديك {{count}} موعد(ا) نهائي(ا) هذا الأسبوع.",
-  "dashboard": "لوحة التحكم",
   "platform_active_summary": "{{users}} تسجيل جديد و {{activity}} حدث نشاط خلال آخر 7 أيام.",
   "active_courses": "الكورسات النشطة",
-  "completed": "مكتمل",
   "this_week": "هذا الأسبوع",
   "student_engagement_30d": "تفاعل الطلاب — آخر 30 يومًا",
   "events": "أحداث",
@@ -212,5 +205,7 @@
   "continue": "متابعة",
   "clear_all": "مسح الكل",
   "showing_range": "عرض {{from}}–{{to}} من {{total}}",
-  "duplicate": "تكرار"
+  "duplicate": "تكرار",
+  "plugin_unavailable": "يتطلّب هذا المحتوى إضافة غير متاحة حاليًا.",
+  "plugin_widgets": "لوحات الإضافات"
 }

@@ -27,6 +27,8 @@ import { useLabPyodide } from '../hooks/useLabPyodide';
 import { useTheme } from '../hooks/useTheme';
 import { LabTemplate } from '../types';
 import { isPythonLab } from '../utils/labType';
+import { parsePluginKey } from '../plugins/keys';
+import { PluginLabRunner } from '../plugins/PluginLabRunner';
 import { useAuthStore } from '../store/authStore';
 import { LabNotebook } from '../components/labs/notebook/LabNotebook';
 import { LabSettingsHeader } from '../components/labs/notebook/LabSettingsHeader';
@@ -629,7 +631,12 @@ export const LabRunner = () => {
     );
   }
 
-  // Dispatch to the right runtime
+  // Dispatch to the right runtime. A plugin lab is checked first because it
+  // has no language runtime at all — none of the notebook machinery below
+  // applies to it.
+  if (parsePluginKey(lab.labType)) {
+    return <PluginLabRunner lab={lab} />;
+  }
   if (isPythonLab(lab.labType)) {
     return <PythonLabRunnerContent lab={lab} />;
   }

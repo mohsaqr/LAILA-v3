@@ -73,6 +73,8 @@ import categoryRoutes from './routes/category.routes.js';
 import meRoutes from './routes/me.routes.js';
 import presentationRoutes from './routes/presentation.routes.js';
 import oidcRoutes, { discoveryRouter as oidcDiscoveryRouter } from './routes/oidc.routes.js';
+import pluginRoutes from './routes/plugin.routes.js';
+import { loadAllPlugins } from './plugins/loader.js';
 
 // Import configuration
 import { CSP_DIRECTIVES } from './config/csp.js';
@@ -234,6 +236,10 @@ app.use('/api/presentations', presentationLimiter, presentationRoutes);
 // Mounted before the SPA catch-all so /.well-known is not swallowed by it.
 app.use('/', oidcDiscoveryRouter);
 app.use('/api/oidc', oidcRoutes);
+// Plugins own everything under /api/plugins, including the sub-routers their
+// own server halves register. Mounted last among the API routers so a plugin
+// can never shadow a built-in route by choosing a clever id.
+app.use('/api/plugins', pluginRoutes);
 
 // Health check with comprehensive status
 app.get('/api/health', async (req, res) => {
@@ -311,6 +317,28 @@ server.listen(PORT, () => {
     environment: process.env.NODE_ENV || 'development',
     nodeVersion: process.version,
   }, `Server started on port ${PORT}`);
+
+  // Plugins load *after* the port is open, not before. A plugin that hangs on
+  // a slow migration or a dead upstream would otherwise delay the whole
+  // instance coming up, and a third-party bug must not be able to hold LAILA
+  // offline. Each failure is recorded against its own plugin and surfaced in
+  // the admin UI; none of them can reject here.
+  void loadAllPlugins(APP_VERSION)
+    .then((result) => {
+      if (result.failed.length) {
+        logger.warn(
+          { failed: result.failed },
+          `${result.failed.length} plugin(s) failed to load; the rest of LAILA is unaffected`,
+        );
+      }
+    })
+    // Defence in depth. loadAllPlugins already swallows per-plugin failures and
+    // a missing plugin table, but an unhandled rejection here would terminate
+    // the process under Node's default policy — the server is already
+    // listening, and no plugin problem justifies taking LAILA down.
+    .catch((err) => {
+      logger.error({ err }, 'plugin loading failed entirely; LAILA is running without plugins');
+    });
 });
 
 export { server };

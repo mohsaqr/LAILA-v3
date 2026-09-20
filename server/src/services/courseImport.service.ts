@@ -66,6 +66,26 @@ export interface ImportReport {
   };
   chatbots: { matched: string[]; created: string[] };
   files: { copied: number; missing: string[] };
+  /**
+   * Personal data, when the package carried any.
+   *
+   * `matched` / `unmatched` are people, by email. An unmatched person's rows
+   * are skipped, never invented: see `writePersonalData` on why an import may
+   * not create accounts.
+   */
+  people?: { matched: number; unmatched: string[] };
+  personalCounts?: {
+    enrollments: number;
+    lectureProgress: number;
+    submissions: number;
+    assignmentGrades: number;
+    quizAttempts: number;
+    surveyResponses: number;
+    discussionThreads: number;
+    discussionPosts: number;
+    conversations: number;
+    activity: number;
+  };
   warnings: string[];
 }
 
@@ -379,6 +399,10 @@ export class CourseImportService {
     // assignments and assignments point back at lectures.
     const moduleIdByKey = new Map<string, number>();
     const lectureIdByKey = new Map<string, number>();
+    const sectionIdByKey = new Map<string, number>();
+    // Reading section ids back costs a query per lecture, so only do it when a
+    // conversation in this package actually points at one.
+    const needSectionKeys = (pkg.conversations ?? []).some((c) => c.sectionKey != null);
     const pendingLectures: Array<{ id: number; lecture: PackageLecture }> = [];
     const createModule = async (m: PackageModule, parentId: number | null): Promise<void> => {
       const mod = await tx.courseModule.create({
@@ -460,6 +484,8 @@ export class CourseImportService {
     }
 
     const assignmentIdByKey = new Map<string, number>();
+    const quizIdByKey = new Map<string, number>();
+    const threadIdByKey = new Map<string, number>();
     for (const a of pkg.assignments) {
       const created = await tx.assignment.create({
         data: {
@@ -518,10 +544,24 @@ export class CourseImportService {
         })),
       });
       counts.sections += lecture.sections.length;
+
+      // Conversations reference the section they happened in. createMany
+      // returns no ids, so read them back in insertion order and zip with the
+      // package's array. Only when a conversation actually needs it.
+      if (needSectionKeys) {
+        const created = await tx.lectureSection.findMany({
+          where: { lectureId: id },
+          select: { id: true },
+          orderBy: { id: 'asc' },
+        });
+        lecture.sections.forEach((sec, i) => {
+          if (sec.key && created[i]) sectionIdByKey.set(sec.key, created[i].id);
+        });
+      }
     }
 
     for (const q of pkg.quizzes) {
-      await tx.quiz.create({
+      const createdQuiz = await tx.quiz.create({
         data: {
           courseId: course.id,
           moduleId: q.moduleKey != null ? moduleIdByKey.get(q.moduleKey) ?? null : null,
@@ -541,7 +581,9 @@ export class CourseImportService {
           orderIndex: q.orderIndex,
           questions: { create: q.questions },
         },
+        select: { id: true },
       });
+      quizIdByKey.set(q.key, createdQuiz.id);
       counts.quizzes += 1;
       counts.quizQuestions += q.questions.length;
     }
@@ -560,7 +602,7 @@ export class CourseImportService {
     }
 
     for (const f of pkg.forums) {
-      await tx.forumThread.create({
+      const createdThread = await tx.forumThread.create({
         data: {
           courseId: course.id,
           moduleId: f.moduleKey != null ? moduleIdByKey.get(f.moduleKey) ?? null : null,
@@ -576,7 +618,9 @@ export class CourseImportService {
           isPinned: f.isPinned,
           isLocked: f.isLocked,
         },
+        select: { id: true },
       });
+      if (f.key) threadIdByKey.set(f.key, createdThread.id);
       counts.forums += 1;
     }
 
@@ -623,6 +667,17 @@ export class CourseImportService {
       });
     }
 
+    const personal = await this.writePersonalData(tx, pkg, course.id, warnings, {
+      moduleIdByKey,
+      lectureIdByKey,
+      sectionIdByKey,
+      assignmentIdByKey,
+      quizIdByKey,
+      surveyIdByKey,
+      threadIdByKey,
+      tutorIdByKey,
+    });
+
     return {
       courseId: course.id,
       slug: course.slug,
@@ -630,7 +685,441 @@ export class CourseImportService {
       counts,
       chatbots,
       files: { copied: files.written, missing: files.missing },
+      ...(personal ?? {}),
       warnings,
+    };
+  }
+
+  /**
+   * Write the personal-data sections a package carried.
+   *
+   * ## Why this never creates a user
+   *
+   * A package is an uploaded file. If importing one could create accounts, a
+   * crafted `people` roster would be an account-creation primitive in the
+   * hands of anyone who can import — and the roster carries an email, which is
+   * the identity the whole platform keys on. So people are **matched by email
+   * against existing users, and nothing else happens**. Rows belonging to
+   * someone this instance does not know are skipped and their email reported,
+   * which is information the importer can act on (invite them, then re-import)
+   * rather than a silent hole.
+   *
+   * Enrollments are the one place a match has an effect beyond data: matching
+   * a person enrolls them. That is the point of importing enrollments, and it
+   * is why the export side gates these sections on course-owner rights.
+   *
+   * @returns the report fragment, or null when the package carried nothing
+   */
+  private async writePersonalData(
+    tx: Tx,
+    pkg: CoursePackage,
+    courseId: number,
+    warnings: string[],
+    keys: {
+      moduleIdByKey: Map<string, number>;
+      lectureIdByKey: Map<string, number>;
+      sectionIdByKey: Map<string, number>;
+      assignmentIdByKey: Map<string, number>;
+      quizIdByKey: Map<string, number>;
+      surveyIdByKey: Map<string, number>;
+      threadIdByKey: Map<string, number>;
+      tutorIdByKey: Map<string, number>;
+    },
+  ): Promise<Pick<ImportReport, 'people' | 'personalCounts'> | null> {
+    const people = pkg.people ?? [];
+    const hasPersonal =
+      people.length > 0 ||
+      (pkg.enrollments?.length ?? 0) > 0 ||
+      (pkg.activity?.length ?? 0) > 0;
+    if (!hasPersonal) return null;
+
+    // Match by email, case-insensitively normalised the way the rest of the
+    // platform stores it.
+    const emails = people.map((p) => p.email.trim().toLowerCase());
+    const existing = emails.length
+      ? await tx.user.findMany({
+          where: { email: { in: emails } },
+          select: { id: true, email: true },
+        })
+      : [];
+    const idByEmail = new Map(existing.map((u) => [u.email.trim().toLowerCase(), u.id]));
+
+    const userIdByKey = new Map<string, number>();
+    const unmatched: string[] = [];
+    people.forEach((person) => {
+      const id = idByEmail.get(person.email.trim().toLowerCase());
+      if (id != null) userIdByKey.set(person.key, id);
+      else unmatched.push(person.email);
+    });
+    if (unmatched.length) {
+      warnings.push(
+        `${unmatched.length} of ${people.length} people in this package have no account here; ` +
+          `their rows were skipped. Invite them and re-import to bring their data across.`,
+      );
+    }
+
+    /** Resolve a userKey, or null when that person is not on this instance. */
+    const uid = (k: string | null | undefined): number | null =>
+      k == null ? null : userIdByKey.get(k) ?? null;
+
+    const counts = {
+      enrollments: 0, lectureProgress: 0, submissions: 0, assignmentGrades: 0,
+      quizAttempts: 0, surveyResponses: 0, discussionThreads: 0, discussionPosts: 0,
+      conversations: 0, activity: 0,
+    };
+
+    // --- enrollments -------------------------------------------------------
+    // Needed before progress, which hangs off an enrollment row.
+    const enrollmentIdByUser = new Map<number, number>();
+    for (const e of pkg.enrollments ?? []) {
+      const userId = uid(e.userKey);
+      if (userId == null) continue;
+      const created = await tx.enrollment.create({
+        data: {
+          userId,
+          courseId,
+          status: e.status,
+          progress: e.progress,
+          enrolledAt: date(e.enrolledAt) ?? new Date(),
+          completedAt: date(e.completedAt),
+          lastAccessAt: date(e.lastAccessAt),
+        },
+        select: { id: true },
+      });
+      enrollmentIdByUser.set(userId, created.id);
+      counts.enrollments += 1;
+    }
+
+    // --- progress ----------------------------------------------------------
+    for (const p of pkg.lectureProgress ?? []) {
+      const userId = uid(p.userKey);
+      const lectureId = keys.lectureIdByKey.get(p.lectureKey);
+      if (userId == null || lectureId == null) continue;
+      // Progress without an enrollment has nowhere to hang: the row is keyed by
+      // enrollmentId. Skip rather than invent an enrollment the package did not
+      // ask for.
+      const enrollmentId = enrollmentIdByUser.get(userId);
+      if (enrollmentId == null) continue;
+      await tx.lectureProgress.create({
+        data: {
+          enrollmentId,
+          lectureId,
+          isCompleted: p.isCompleted,
+          completedAt: date(p.completedAt),
+          timeSpent: p.timeSpent,
+        },
+      });
+      counts.lectureProgress += 1;
+    }
+
+    // --- submissions and their grades --------------------------------------
+    // One row holds both, so they are merged here: a package carrying only
+    // grades still creates the submission row the grade belongs to.
+    type SubmissionDraft = {
+      userId: number;
+      assignmentId: number;
+      content: string | null;
+      fileUrls: string | null;
+      status: string;
+      submittedAt: Date;
+      grade: number | null;
+      feedback: string | null;
+      aiFeedback: string | null;
+      gradedAt: Date | null;
+      gradedById: number | null;
+    };
+    const drafts = new Map<string, SubmissionDraft>();
+    const draftKey = (userId: number, assignmentId: number) => `${userId}:${assignmentId}`;
+
+    for (const sub of pkg.submissions ?? []) {
+      const userId = uid(sub.userKey);
+      const assignmentId = keys.assignmentIdByKey.get(sub.assignmentKey);
+      if (userId == null || assignmentId == null) continue;
+      drafts.set(draftKey(userId, assignmentId), {
+        userId,
+        assignmentId,
+        content: sub.content,
+        fileUrls: sub.fileUrls,
+        status: sub.status,
+        submittedAt: date(sub.submittedAt) ?? new Date(),
+        grade: null,
+        feedback: null,
+        aiFeedback: null,
+        gradedAt: null,
+        gradedById: null,
+      });
+    }
+
+    for (const g of pkg.grades?.assignments ?? []) {
+      const userId = uid(g.userKey);
+      const assignmentId = keys.assignmentIdByKey.get(g.assignmentKey);
+      if (userId == null || assignmentId == null) continue;
+      const k = draftKey(userId, assignmentId);
+      const draft = drafts.get(k) ?? {
+        userId,
+        assignmentId,
+        content: null,
+        fileUrls: null,
+        // A grade with no submission body means the work came in some other
+        // way; 'graded' is the honest status rather than pretending it was
+        // submitted through LAILA.
+        status: 'graded',
+        submittedAt: date(g.gradedAt) ?? new Date(),
+        grade: null,
+        feedback: null,
+        aiFeedback: null,
+        gradedAt: null,
+        gradedById: null,
+      };
+      draft.grade = g.grade;
+      draft.feedback = g.feedback;
+      draft.aiFeedback = g.aiFeedback;
+      draft.gradedAt = date(g.gradedAt);
+      draft.gradedById = uid(g.gradedByKey);
+      drafts.set(k, draft);
+      counts.assignmentGrades += 1;
+    }
+
+    for (const draft of drafts.values()) {
+      await tx.assignmentSubmission.create({ data: draft });
+      counts.submissions += 1;
+    }
+
+    // --- quiz attempts -----------------------------------------------------
+    for (const a of pkg.grades?.quizAttempts ?? []) {
+      const userId = uid(a.userKey);
+      const quizId = keys.quizIdByKey.get(a.quizKey);
+      if (userId == null || quizId == null) continue;
+
+      // Answers reference questions by position in the exported quiz, so the
+      // imported questions have to be read back in the same order.
+      const questions = await tx.quizQuestion.findMany({
+        where: { quizId },
+        select: { id: true },
+        orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      });
+      await tx.quizAttempt.create({
+        data: {
+          quizId,
+          userId,
+          attemptNumber: a.attemptNumber,
+          startedAt: date(a.startedAt) ?? new Date(),
+          submittedAt: date(a.submittedAt),
+          score: a.score,
+          pointsEarned: a.pointsEarned,
+          pointsTotal: a.pointsTotal,
+          timeTaken: a.timeTaken,
+          status: a.status,
+          answers: {
+            create: a.answers
+              .filter((ans) => questions[ans.questionIndex])
+              .map((ans) => ({
+                questionId: questions[ans.questionIndex].id,
+                answer: ans.answer,
+                isCorrect: ans.isCorrect,
+                pointsAwarded: ans.pointsAwarded,
+              })),
+          },
+        },
+      });
+      counts.quizAttempts += 1;
+    }
+
+    // --- survey responses --------------------------------------------------
+    for (const r of pkg.grades?.surveyResponses ?? []) {
+      const surveyId = keys.surveyIdByKey.get(r.surveyKey);
+      if (surveyId == null) continue;
+      // A response with a userKey we cannot resolve is skipped; one exported
+      // WITHOUT a userKey is anonymous by design and imports as anonymous.
+      const userId = r.userKey == null ? null : uid(r.userKey);
+      if (r.userKey != null && userId == null) continue;
+
+      const questions = await tx.surveyQuestion.findMany({
+        where: { surveyId },
+        select: { id: true },
+        orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }],
+      });
+      await tx.surveyResponse.create({
+        data: {
+          surveyId,
+          userId,
+          moduleId: r.moduleKey != null ? keys.moduleIdByKey.get(r.moduleKey) ?? null : null,
+          context: r.context,
+          completedAt: date(r.completedAt) ?? new Date(),
+          answers: {
+            create: r.answers
+              .filter((ans) => questions[ans.questionIndex])
+              .map((ans) => ({
+                questionId: questions[ans.questionIndex].id,
+                answerValue: ans.answerValue,
+              })),
+          },
+        },
+      });
+      counts.surveyResponses += 1;
+    }
+
+    // --- discussions -------------------------------------------------------
+    const importedThreadIdByKey = new Map(keys.threadIdByKey);
+    for (const th of pkg.discussions?.threads ?? []) {
+      // An anonymous thread has no authorKey. It still needs an author column,
+      // so it is attributed to the course owner with isAnonymous preserved —
+      // which is exactly how an anonymous thread already behaves in LAILA.
+      const authorId = uid(th.authorKey);
+      if (th.authorKey != null && authorId == null) continue;
+      const course = await tx.course.findUnique({
+        where: { id: courseId },
+        select: { instructorId: true },
+      });
+      const created = await tx.forumThread.create({
+        data: {
+          courseId,
+          moduleId: th.moduleKey != null ? keys.moduleIdByKey.get(th.moduleKey) ?? null : null,
+          authorId: authorId ?? course!.instructorId,
+          title: th.title,
+          content: th.content,
+          isPinned: th.isPinned,
+          isLocked: th.isLocked,
+          isAnonymous: th.isAnonymous,
+          viewCount: th.viewCount,
+          createdAt: date(th.createdAt) ?? new Date(),
+        },
+        select: { id: true },
+      });
+      importedThreadIdByKey.set(th.key, created.id);
+      counts.discussionThreads += 1;
+    }
+
+    // Posts are written parent-before-child so a threaded reply can point at
+    // its parent's NEW id. A reply whose parent was skipped becomes top-level
+    // rather than being dropped — losing the nesting is better than losing the
+    // contribution.
+    const postIdByKey = new Map<string, number>();
+    const pending = [...(pkg.discussions?.posts ?? [])];
+    let progressed = true;
+    while (pending.length && progressed) {
+      progressed = false;
+      for (let i = 0; i < pending.length; ) {
+        const post = pending[i];
+        const parentReady = post.parentKey == null || postIdByKey.has(post.parentKey);
+        if (!parentReady) {
+          i += 1;
+          continue;
+        }
+        pending.splice(i, 1);
+        progressed = true;
+        const threadId = importedThreadIdByKey.get(post.threadKey);
+        const authorId = uid(post.authorKey);
+        if (threadId == null || (post.authorKey != null && authorId == null)) continue;
+        const course = await tx.course.findUnique({
+          where: { id: courseId },
+          select: { instructorId: true },
+        });
+        const created = await tx.forumPost.create({
+          data: {
+            threadId,
+            authorId: authorId ?? course!.instructorId,
+            parentId: post.parentKey != null ? postIdByKey.get(post.parentKey) ?? null : null,
+            content: post.content,
+            isAnonymous: post.isAnonymous,
+            isEdited: post.isEdited,
+            isAiGenerated: post.isAiGenerated,
+            aiAgentName: post.aiAgentName,
+            createdAt: date(post.createdAt) ?? new Date(),
+          },
+          select: { id: true },
+        });
+        postIdByKey.set(post.key, created.id);
+        counts.discussionPosts += 1;
+      }
+    }
+    if (pending.length) {
+      // A cycle in parentKey, which a well-formed package cannot contain.
+      warnings.push(`${pending.length} discussion post(s) had unresolvable parents and were skipped.`);
+    }
+
+    // --- conversations -----------------------------------------------------
+    for (const c of pkg.conversations ?? []) {
+      const userId = uid(c.userKey);
+      if (userId == null) continue;
+      const messages = c.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        createdAt: date(m.createdAt) ?? new Date(),
+      }));
+
+      if (c.kind === 'chatbot-section') {
+        const sectionId = c.sectionKey != null ? keys.sectionIdByKey.get(c.sectionKey) : null;
+        if (sectionId == null) continue;
+        await tx.chatbotConversation.create({
+          data: {
+            sectionId,
+            userId,
+            createdAt: date(c.createdAt) ?? new Date(),
+            messages: { create: messages },
+          },
+        });
+      } else {
+        const courseTutorId = c.tutorKey != null ? keys.tutorIdByKey.get(c.tutorKey) : null;
+        if (courseTutorId == null) continue;
+        await tx.courseTutorConversation.create({
+          data: {
+            courseTutorId,
+            userId,
+            title: c.title,
+            createdAt: date(c.createdAt) ?? new Date(),
+            messages: { create: messages },
+          },
+        });
+      }
+      counts.conversations += 1;
+    }
+
+    // --- activity ----------------------------------------------------------
+    // createMany: an activity log is the one section that can run to six
+    // figures, and a row-at-a-time insert would dominate the whole import.
+    const activityRows = (pkg.activity ?? [])
+      .map((r) => {
+        const userId = uid(r.userKey);
+        if (userId == null) return null;
+        return {
+          userId,
+          courseId,
+          verb: r.verb,
+          objectType: r.objectType,
+          objectTitle: r.objectTitle,
+          objectSubtype: r.objectSubtype,
+          courseTitle: r.courseTitle,
+          moduleTitle: r.moduleTitle,
+          lectureTitle: r.lectureTitle,
+          sectionTitle: r.sectionTitle,
+          sessionId: r.sessionId,
+          success: r.success,
+          score: r.score,
+          maxScore: r.maxScore,
+          progress: r.progress,
+          duration: r.duration,
+          extensions: r.extensions,
+          timestamp: date(r.timestamp) ?? new Date(),
+          deviceType: r.deviceType,
+          browserName: r.browserName,
+          actionSubtype: r.actionSubtype,
+          // eventUuid is UNIQUE per (user, uuid). Re-importing the same package
+          // would collide, so it is deliberately not carried over: these rows
+          // are a copy, not the originals.
+          route: r.route,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    if (activityRows.length) {
+      await tx.learningActivityLog.createMany({ data: activityRows });
+      counts.activity = activityRows.length;
+    }
+
+    return {
+      people: { matched: userIdByKey.size, unmatched },
+      personalCounts: counts,
     };
   }
 }

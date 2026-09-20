@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,6 +17,7 @@ import {
   Copy,
   Trash2,
   Sparkles,
+  Puzzle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -31,6 +32,8 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../hooks/useAuth';
 import { CustomLab, LabType } from '../types';
 import activityLogger from '../services/activityLogger';
+import { usePluginExtensions } from '../plugins/usePluginExtensions';
+import { parsePluginKey } from '../plugins/keys';
 
 // Lab type icons and colors
 const labTypeConfig: Record<string, { icon: typeof FlaskConical; gradient: string }> = {
@@ -76,10 +79,26 @@ export const Labs = () => {
     queryFn: () => customLabsApi.getLabs({ search, labType: selectedType || undefined }),
   });
 
-  const { data: labTypes } = useQuery({
+  const { data: builtinLabTypes } = useQuery({
     queryKey: ['labTypes'],
     queryFn: customLabsApi.getLabTypes,
   });
+
+  // Lab types contributed by installed plugins, offered beside the built-in
+  // ones. The server's list stays authoritative for r/python/sna/tna; these are
+  // added client-side because only the browser knows which plugins loaded.
+  const pluginLabExtensions = usePluginExtensions('lab');
+  const labTypes: LabType[] = useMemo(
+    () => [
+      ...(builtinLabTypes ?? []),
+      ...pluginLabExtensions.map((ext) => ({
+        id: ext.key,
+        name: ext.label,
+        description: ext.description ?? ext.pluginName,
+      })),
+    ],
+    [builtinLabTypes, pluginLabExtensions],
+  );
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['labs'] });
@@ -135,7 +154,13 @@ export const Labs = () => {
   const cardAction =
     'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors';
 
-  const getLabConfig = (labType: string) => labTypeConfig[labType] || labTypeConfig.tna;
+  const getLabConfig = (labType: string) =>
+    labTypeConfig[labType] ||
+    // An unknown type is either a plugin's or a row from a newer build; both
+    // are better shown as "something else" than disguised as a TNA lab.
+    (parsePluginKey(labType)
+      ? { icon: Puzzle, gradient: 'from-amber-500 to-orange-600' }
+      : labTypeConfig.tna);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: isDark ? '#111827' : '#f3f4f6' }}>
@@ -466,15 +491,20 @@ export const Labs = () => {
               ))}
             </select>
           </div>
-          <label className="flex items-center gap-3 text-sm text-gray-800 dark:text-gray-100">
-            <input
-              type="checkbox"
-              checked={labForm.addDefaultTemplates}
-              onChange={e => setLabForm({ ...labForm, addDefaultTemplates: e.target.checked })}
-              className="w-4 h-4 rounded text-emerald-500"
-            />
-            {t('teaching:add_default_templates', { defaultValue: 'Start with example cells for this lab type' })}
-          </label>
+          {/* Example cells are notebook cells, which a plugin lab has none of —
+              the plugin renders its own content. Offering the option would
+              silently create rows nothing ever reads. */}
+          {!parsePluginKey(labForm.labType) && (
+            <label className="flex items-center gap-3 text-sm text-gray-800 dark:text-gray-100">
+              <input
+                type="checkbox"
+                checked={labForm.addDefaultTemplates}
+                onChange={e => setLabForm({ ...labForm, addDefaultTemplates: e.target.checked })}
+                className="w-4 h-4 rounded text-emerald-500"
+              />
+              {t('teaching:add_default_templates', { defaultValue: 'Start with example cells for this lab type' })}
+            </label>
+          )}
           <label className="flex items-center gap-3 text-sm text-gray-800 dark:text-gray-100">
             <input
               type="checkbox"

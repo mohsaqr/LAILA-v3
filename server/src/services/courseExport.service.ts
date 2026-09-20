@@ -16,6 +16,12 @@ import type { Readable } from 'node:stream';
 import archiver from 'archiver';
 import prisma from '../utils/prisma.js';
 import { AppError } from '../middleware/error.middleware.js';
+import {
+  DESIGN_SECTIONS,
+  personalDataIn,
+  type ExportSection,
+} from './coursePackage.selection.js';
+import { collectPersonalData, type CourseScope } from './coursePackage.personal.js';
 import { courseRoleService } from './courseRole.service.js';
 import { APP_VERSION } from '../config/buildInfo.js';
 import { findUploadUrls, resolveUploadPath } from '../utils/uploadFiles.js';
@@ -94,14 +100,65 @@ export interface ExportResult {
   manifest: PackageManifest;
   /** Upload URLs the design refers to whose file is no longer on disk. */
   missingFiles: string[];
+  /** Non-fatal problems worth telling the exporter about (e.g. a capped log). */
+  warnings: string[];
 }
 
 export class CourseExportService {
-  /** Build the package for `courseId`. Requires edit rights on the course. */
-  async buildPackage(courseId: number, userId: number, isAdmin = false): Promise<ExportResult> {
+  /**
+   * Exporting someone else's data is a stronger act than exporting your own
+   * course, so it needs stronger rights.
+   *
+   * Edit rights on a course are held by co-instructors and TAs — people who
+   * should be able to take the *design* elsewhere, but not to walk away with
+   * every student's submissions and transcripts. The personal-data sections
+   * therefore require `canManageRoles`, which is deliberately the narrowest
+   * gate in courseRole.service: the platform admin or the course owner, and
+   * explicitly NOT a team member holding `manage_students` (that permission
+   * governs enrolling students, not taking their data off the platform).
+   *
+   * Checked here rather than at the route so every caller of buildPackage is
+   * covered, including duplicate and any future scheduled export.
+   *
+   * @throws {AppError} 403 naming the sections that were refused
+   */
+  private async assertMayExport(
+    courseId: number,
+    userId: number,
+    isAdmin: boolean,
+    selection: readonly ExportSection[],
+  ): Promise<void> {
+    const personal = personalDataIn(selection);
+    if (!personal.length) return;
+    if (isAdmin) return;
+    if (await courseRoleService.canManageRoles(userId, courseId, isAdmin)) return;
+    throw new AppError(
+      `Exporting ${personal.join(', ')} requires course-admin rights, because it discloses other people's data`,
+      403,
+    );
+  }
+
+  /**
+   * Build the package for `courseId`. Requires edit rights on the course.
+   *
+   * @param selection which sections to include. Defaults to the design-only
+   *   set, so every caller that predates selections gets exactly what it got
+   *   before. Sections that disclose other people's data additionally require
+   *   course-admin rights — see `assertMayExport`.
+   */
+  async buildPackage(
+    courseId: number,
+    userId: number,
+    isAdmin = false,
+    selection: readonly ExportSection[] = DESIGN_SECTIONS,
+  ): Promise<ExportResult> {
     if (!(await courseRoleService.canEditContent(userId, courseId, isAdmin))) {
       throw new AppError('Not authorized', 403);
     }
+    await this.assertMayExport(courseId, userId, isAdmin, selection);
+    const want = (section: ExportSection): boolean => selection.includes(section);
+    /** Include a list only when its section was selected. */
+    const gate = <T>(section: ExportSection, rows: T[]): T[] => (want(section) ? rows : []);
     const course = (await prisma.course.findUnique({
       where: { id: courseId },
       include: courseInclude,
@@ -167,7 +224,7 @@ export class CourseExportService {
       },
       categories: course.categories.map((c) => c.category.title),
       modules: course.modules.map((m) => this.serialiseModule(m, m.children, assignmentRef)),
-      assignments: course.assignments.map((a) => ({
+      assignments: gate('assessments', course.assignments.map((a) => ({
         key: `a${a.id}`,
         moduleKey: moduleRef(a.moduleId),
         lectureKey: lectureRef(a.lectureId),
@@ -197,8 +254,8 @@ export class CourseExportService {
           fileType: f.fileType,
           fileSize: f.fileSize,
         })),
-      })),
-      quizzes: course.quizzes.map((q) => ({
+      }))),
+      quizzes: gate('assessments', course.quizzes.map((q) => ({
         key: `q${q.id}`,
         moduleKey: moduleRef(q.moduleId),
         title: q.title,
@@ -225,8 +282,8 @@ export class CourseExportService {
           shuffleOptions: qq.shuffleOptions,
           orderIndex: qq.orderIndex,
         })),
-      })),
-      surveys: [...surveysByKey.entries()].map(([key, s]) => ({
+      }))),
+      surveys: gate('assessments', [...surveysByKey.entries()].map(([key, s]) => ({
         key,
         title: s.title,
         description: s.description,
@@ -239,8 +296,8 @@ export class CourseExportService {
           isRequired: sq.isRequired,
           orderIndex: sq.orderIndex,
         })),
-      })),
-      customLabs: [...labsByKey.entries()].map(([key, lab]) => ({
+      }))),
+      customLabs: gate('labs', [...labsByKey.entries()].map(([key, lab]) => ({
         key,
         name: lab.name,
         description: lab.description,
@@ -256,20 +313,21 @@ export class CourseExportService {
           locked: c.locked,
           cellType: c.cellType,
         })),
-      })),
-      labAssignments: course.labAssignments.map((la) => ({
+      }))),
+      labAssignments: gate('labs', course.labAssignments.map((la) => ({
         labKey: `l${la.labId}`,
         moduleKey: moduleRef(la.moduleId),
         assignmentKey: assignmentRef(la.assignmentId),
         orderIndex: la.orderIndex,
         isPublished: la.isPublished,
-      })),
+      }))),
       // A forum row is both the forum's settings and its opening post. Only
       // threads opened by course staff are part of the design; a student's
       // thread is their data and stays behind.
-      forums: course.forumThreads
+      forums: gate('forums', course.forumThreads
         .filter((f) => staffIds.has(f.authorId))
         .map((f) => ({
+          key: `th${f.id}`,
           moduleKey: moduleRef(f.moduleId),
           title: f.title,
           content: f.content,
@@ -281,8 +339,8 @@ export class CourseExportService {
           orderIndex: f.orderIndex,
           isPinned: f.isPinned,
           isLocked: f.isLocked,
-        })),
-      tutors: course.courseTutors.map((t) => ({
+        }))),
+      tutors: gate('tutors', course.courseTutors.map((t) => ({
         key: tutorKey(t.id),
         chatbot: this.serialiseChatbot(t.chatbot),
         customName: t.customName,
@@ -293,8 +351,8 @@ export class CourseExportService {
         customTemperature: t.customTemperature,
         isActive: t.isActive,
         displayOrder: t.displayOrder,
-      })),
-      rubrics: rubrics.map((r) => ({
+      }))),
+      rubrics: gate('assessments', rubrics.map((r) => ({
         title: r.title,
         description: r.description,
         isTemplate: r.isTemplate,
@@ -305,13 +363,39 @@ export class CourseExportService {
           orderIndex: c.orderIndex,
           levels: c.levels,
         })),
-      })),
+      }))),
     };
+
+    // Personal data is queried separately and only for the sections that were
+    // selected — the activity log alone can run to hundreds of thousands of
+    // rows, and pulling it into every design-only export to discard it would
+    // be indefensible.
+    const scope: CourseScope = {
+      courseId: course.id,
+      lectureIds,
+      assignmentIds,
+      quizIds: new Set(course.quizzes.map((q) => q.id)),
+      surveyIds: new Set([...surveysByKey.values()].map((sv) => sv.id)),
+      moduleIds,
+      sectionIds: new Set(allModules.flatMap((m) => m.lectures.flatMap((l) => l.sections.map((sec) => sec.id)))),
+      tutorIds: new Set(course.courseTutors.map((t) => t.id)),
+      staffThreadIds: new Set(
+        course.forumThreads.filter((f) => staffIds.has(f.authorId)).map((f) => f.id),
+      ),
+      staffIds,
+    };
+    const personal = await collectPersonalData(scope, selection);
+    const withPersonal = { ...withoutFiles, ...personal.data };
 
     // Module keys in assignments/quizzes/forums may point at any module, top or
     // nested, so the flattened set is what the keys are checked against.
-    const { files, missingFiles } = await this.collectFiles(JSON.stringify(withoutFiles));
-    const pkg: CoursePackage = { ...withoutFiles, files };
+    //
+    // Submission attachments live in a JSON column the URL scan would miss, so
+    // they are appended to the text the collector walks.
+    const { files, missingFiles } = await this.collectFiles(
+      JSON.stringify(withPersonal) + personal.referencedUploads.join(' '),
+    );
+    const pkg: CoursePackage = { ...withPersonal, files } as CoursePackage;
 
     const manifest: PackageManifest = {
       format: COURSE_PACKAGE_FORMAT,
@@ -319,13 +403,24 @@ export class CourseExportService {
       exportedAt: new Date().toISOString(),
       exporter: { application: 'LAILA', version: APP_VERSION },
       source: { courseId: course.id, slug: course.slug, title: course.title },
+      selection: [...selection],
     };
-    return { pkg, manifest, missingFiles };
+    return { pkg, manifest, missingFiles, warnings: personal.warnings };
   }
 
   /** Build the package and stream it as a zip. */
-  async streamZip(courseId: number, userId: number, isAdmin = false): Promise<{ archive: Readable; fileName: string; missingFiles: string[] }> {
-    const { pkg, manifest, missingFiles } = await this.buildPackage(courseId, userId, isAdmin);
+  async streamZip(
+    courseId: number,
+    userId: number,
+    isAdmin = false,
+    selection: readonly ExportSection[] = DESIGN_SECTIONS,
+  ): Promise<{ archive: Readable; fileName: string; missingFiles: string[]; warnings: string[] }> {
+    const { pkg, manifest, missingFiles, warnings } = await this.buildPackage(
+      courseId,
+      userId,
+      isAdmin,
+      selection,
+    );
     const archive = archiver('zip', { zlib: { level: 6 } });
     archive.append(JSON.stringify(manifest, null, 2), { name: 'manifest.json' });
     archive.append(JSON.stringify(pkg, null, 2), { name: 'course.json' });
@@ -338,7 +433,7 @@ export class CourseExportService {
     // Slugs end in a base-36 timestamp (course.service generateSlug); a title
     // word never has a digit in it, so requiring one keeps "-course" intact.
     const stem = pkg.course.slug.replace(/-(?=[0-9a-z]*\d)[0-9a-z]{7,9}$/, '') || 'course';
-    return { archive, fileName: `${stem}${COURSE_PACKAGE_EXTENSION}`, missingFiles };
+    return { archive, fileName: `${stem}${COURSE_PACKAGE_EXTENSION}`, missingFiles, warnings };
   }
 
   private serialiseModule(
@@ -370,6 +465,7 @@ export class CourseExportService {
         availableFrom: iso(l.availableFrom),
         availableUntil: iso(l.availableUntil),
         sections: l.sections.map((s) => ({
+          key: `sec${s.id}`,
           title: s.title,
           type: s.type,
           content: s.content,

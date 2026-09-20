@@ -1142,5 +1142,8 @@
   "editor_theme_dark": "Tumma",
   "enrollment_required_title": "Ilmoittaudu päästäksesi kurssille",
   "enrollment_required_body": "Tämän kurssin sisältö on vain ilmoittautuneiden opiskelijoiden käytettävissä. Ilmoittaudu nähdäksesi sen moduulit, luennot ja harjoitukset.",
-  "enter_course_code": "Syötä kurssikoodi"
+  "enter_course_code": "Syötä kurssikoodi",
+  "labs": "Laboratoriot",
+  "plugin_tool_missing": "Tämä työkalu ei ole käytettävissä. Sen tarjoava lisäosa on voitu poistaa käytöstä tai poistaa kokonaan.",
+  "plugin_lab_missing": "Tämä laboratorio vaatii lisäosan, joka ei ole tällä hetkellä käytettävissä. Tallennettuun työhön ei ole koskettu — pyydä ylläpitäjää ottamaan lisäosa käyttöön."
 }

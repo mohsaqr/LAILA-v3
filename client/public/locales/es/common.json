@@ -54,7 +54,7 @@
   "active": "Activo",
   "inactive": "Inactivo",
   "pending": "Pendiente",
-  "completed": "Completado",
+  "completed": "Completados",
   "in_progress": "En progreso",
   "draft": "Borrador",
   "published": "Publicado",
@@ -106,8 +106,7 @@
   "dismiss": "Descartar",
   "courses": "Cursos",
   "settings": "Configuración",
-  "dashboard": "Panel de control",
-
+  "dashboard": "Panel",
   "status_draft": "Borrador",
   "status_published": "Publicado",
   "status_archived": "Archivado",
@@ -118,12 +117,10 @@
   "status_completed": "Completado",
   "status_pending": "Pendiente",
   "status_not_started": "No iniciado",
-
   "theme_dark": "Oscuro",
   "theme_light": "Claro",
   "theme_label": "Tema: {{theme}}",
   "theme_aria_label": "Tema actual: {{theme}}. Haz clic para cambiar.",
-
   "emotion_productive": "Productivo",
   "emotion_stimulated": "Estimulado",
   "emotion_frustrated": "Frustrado",
@@ -133,10 +130,8 @@
   "emotion_quitting": "Abandonando",
   "how_are_you_feeling": "¿Cómo te sientes?",
   "thanks_for_sharing": "¡Gracias por compartir!",
-
   "skip_to_main_content": "Ir al contenido principal",
   "skip_to_navigation": "Ir a la navegación",
-
   "something_went_wrong": "Algo salió mal",
   "error_boundary_message": "Lo sentimos, ocurrió algo inesperado. Por favor, intenta actualizar la página o volver a la página de inicio.",
   "try_again": "Intentar de nuevo",
@@ -176,10 +171,8 @@
   "keep_the_streak_going": "Mantén la racha.",
   "nothing_in_progress": "Nada en progreso todavía",
   "you_have_x_deadlines_this_week": "Tienes {{count}} fecha(s) límite esta semana.",
-  "dashboard": "Panel",
   "platform_active_summary": "{{users}} nuevos registros y {{activity}} eventos de actividad en los últimos 7 días.",
   "active_courses": "Cursos activos",
-  "completed": "Completados",
   "this_week": "Esta semana",
   "student_engagement_30d": "Participación de estudiantes — últimos 30 días",
   "events": "eventos",
@@ -212,5 +205,7 @@
   "continue": "Continuar",
   "clear_all": "Borrar todo",
   "showing_range": "Mostrando {{from}}–{{to}} de {{total}}",
-  "duplicate": "Duplicar"
+  "duplicate": "Duplicar",
+  "plugin_unavailable": "Este contenido necesita un complemento que no está disponible actualmente.",
+  "plugin_widgets": "Paneles de complementos"
 }

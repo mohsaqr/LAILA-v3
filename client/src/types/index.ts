@@ -360,7 +360,7 @@ export interface LectureSection {
   id: number;
   lectureId: number;
   title: string | null; // Section title (e.g., "Introduction", "Key Concepts")
-  type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment';
+  type: LectureSectionType;
   content: string | null;
   fileName: string | null;
   fileUrl: string | null;
@@ -660,9 +660,30 @@ export interface GradeFormData {
   feedback: string;
 }
 
+/**
+ * A lecture section's type.
+ *
+ * The database column is a free string, and always has been — these are the
+ * types this build renders natively, not the closed set of what may appear. A
+ * plugin-provided block stores `plugin:<pluginId>:<extensionId>` here, and a
+ * row written by a newer LAILA may carry a type this build has never heard of.
+ * Both fall through the renderers' `default` branch, which is why widening the
+ * union costs nothing: no existing narrowing on a known literal changes.
+ */
+export type LectureSectionType =
+  | 'text'
+  | 'file'
+  | 'ai-generated'
+  | 'chatbot'
+  | 'assignment'
+  // Any other string, notably a plugin extension key. `(string & {})` keeps
+  // editor autocomplete for the literals above instead of collapsing to
+  // `string`, which is the whole reason for the idiom.
+  | (string & {});
+
 // Section types for lecture editor
 export interface CreateSectionData {
-  type: 'text' | 'file' | 'ai-generated' | 'chatbot' | 'assignment';
+  type: LectureSectionType;
   title?: string;
   content?: string;
   fileName?: string;
