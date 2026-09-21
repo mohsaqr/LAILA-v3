@@ -1,20 +1,30 @@
 /**
  * Launching an LTI tool from inside a lesson.
  *
- * ## Why this is not just an iframe with a `src`
+ * ## Two steps, not one
  *
- * A launch begins with an authenticated **POST** to `/api/lti/launch`, and the
- * server answers with an auto-submitting HTML form aimed at the tool. An iframe
- * `src` cannot carry the JWT (an iframe sends no Authorization header), and the
- * response is HTML to execute rather than a URL to visit.
+ * An authenticated **POST** to `/api/lti/launch` creates the launch and returns
+ * a `startUrl`; the iframe then *navigates* to that URL. The POST carries the
+ * JWT (an iframe navigation cannot), and the GET renders the auto-submitting
+ * form under its own Content-Security-Policy.
  *
- * So: axios fetches the HTML with the token attached, and it is handed to the
- * iframe through `srcdoc`. The form inside then submits cross-origin to the
- * tool, exactly as `response_mode=form_post` intends, and the signed token
- * never appears in a URL — where it would land in browser history, proxy logs
- * and `Referer` headers.
+ * ## Why not srcdoc, which is what this did first
  *
- * ## The failure this is most likely to hit
+ * The original version fetched the HTML with axios and injected it via
+ * `srcdoc`. That cannot work, and the reason is worth writing down: **a srcdoc
+ * iframe inherits the embedder's CSP**, so the tailored policy the server sends
+ * with that HTML is never consulted. The SPA's policy applies instead, and it
+ * carries `form-action 'self'` — which blocks the cross-origin POST to the
+ * tool — and `script-src-attr 'none'`, which blocked the auto-submit. The
+ * learner saw a permanently empty box. Verified in Chromium: *"Sending form
+ * data to '<tool>' violates … form-action 'self'"*.
+ *
+ * A real navigation is governed by the response's own headers, so the launch
+ * document can allow exactly the one origin it must post to and nothing else.
+ * The signed token still never appears in a URL — it is a hidden field in the
+ * form body of that response.
+ *
+ * ## The failure this is still most likely to hit
  *
  * `frame-src` must include the tool's origin. It is not dynamic: nginx serves
  * the SPA from disk and the header is baked at generation time, so an admin
@@ -45,7 +55,7 @@ export const LtiLaunch = ({
   height = 600,
 }: LtiLaunchProps) => {
   const { t } = useTranslation(['courses', 'common']);
-  const [html, setHtml] = useState<string | null>(null);
+  const [startUrl, setStartUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -57,12 +67,14 @@ export const LtiLaunch = ({
     setStarted(true);
     setError(null);
     try {
-      const res = await apiClient.post<string>(
-        '/lti/launch',
-        { toolId, courseId, sectionId },
-        { responseType: 'text' },
-      );
-      setHtml(res.data);
+      const res = await apiClient.post<{ data: { startUrl: string } }>('/lti/launch', {
+        toolId,
+        courseId,
+        sectionId,
+      });
+      const url = res.data?.data?.startUrl;
+      if (!url) throw new Error('no startUrl in launch response');
+      setStartUrl(url);
     } catch (err) {
       const detail =
         (err as { response?: { data?: { error_description?: string; error?: string } } }).response
@@ -80,7 +92,7 @@ export const LtiLaunch = ({
   // likely wrong instead of leaving a blank rectangle.
   const [maybeBlocked, setMaybeBlocked] = useState(false);
   useEffect(() => {
-    if (!html) return;
+    if (!startUrl) return;
     setMaybeBlocked(false);
     const timer = setTimeout(() => {
       try {
@@ -92,7 +104,7 @@ export const LtiLaunch = ({
       }
     }, 4000);
     return () => clearTimeout(timer);
-  }, [html]);
+  }, [startUrl]);
 
   if (error) {
     return (
@@ -111,7 +123,7 @@ export const LtiLaunch = ({
     );
   }
 
-  if (!html) {
+  if (!startUrl) {
     return (
       <div className="my-3 rounded-lg border border-gray-200 p-6 text-center dark:border-gray-700">
         <p className="mb-1 font-medium text-gray-900 dark:text-gray-100">{toolName}</p>
@@ -142,7 +154,7 @@ export const LtiLaunch = ({
     <div className="my-3">
       <iframe
         ref={frameRef}
-        srcDoc={html}
+        src={startUrl}
         title={toolName}
         style={{ height }}
         className="w-full rounded-lg border border-gray-200 dark:border-gray-700"

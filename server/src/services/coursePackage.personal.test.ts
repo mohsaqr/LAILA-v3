@@ -279,6 +279,39 @@ describe('grades', () => {
     expect((data.grades?.surveyResponses[0] as { userKey: string | null }).userKey).toBeNull();
     expect(data.people ?? []).toEqual([]);
   });
+
+  // A Survey row has no courseId and one survey is routinely attached in several
+  // courses, so surveyId alone does not mean "ours". Filtering on it pulled in
+  // other courses' responses — and, through roster.note, those students' names
+  // and email addresses.
+  it('asks only for responses attributable to this course', async () => {
+    await collectPersonalData(scope, parseSelection('grades'));
+
+    const where = vi.mocked(prisma.surveyResponse.findMany).mock.calls[0][0]?.where as {
+      surveyId: unknown;
+      OR: { moduleId?: { in: number[] }; context?: string; contextId?: { in: number[] } }[];
+    };
+
+    // Asserting on the QUERY: a foreign response must never be loaded, not
+    // merely dropped afterwards, or the roster has already seen the person.
+    expect(where.OR).toEqual(
+      expect.arrayContaining([
+        { moduleId: { in: [51] } },
+        { context: 'assignment', contextId: { in: [21] } },
+      ]),
+    );
+  });
+
+  it('does not widen the roster with a foreign respondent', async () => {
+    // What the database would return if the scope filter were dropped: a
+    // response from another course's module, by someone not in this course.
+    vi.mocked(prisma.surveyResponse.findMany).mockResolvedValue([] as never);
+
+    const { data } = await collectPersonalData(scope, parseSelection('grades'));
+
+    expect(data.grades?.surveyResponses).toEqual([]);
+    expect(data.people ?? []).toEqual([]);
+  });
 });
 
 describe('discussions', () => {

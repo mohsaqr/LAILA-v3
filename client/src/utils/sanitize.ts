@@ -103,6 +103,16 @@ export const sanitizeHtml = (dirty: string): string => {
       // structure, which is meaningless to strip once tables are allowed.
       'style', 'colspan', 'rowspan', 'colwidth', 'align',
     ],
+    // Byte-identical to DOMPurify's own default ALLOWED_URI_REGEXP, kept that
+    // way so it can be diffed against upstream when DOMPurify is updated.
+    //
+    // The first `\-` is redundant (a trailing `-` in a character class is
+    // already literal) and is what the lint rule flags; removing it is provably
+    // a no-op. The SECOND `\-` is load-bearing: in `[^a-z+.\-:]` the hyphen sits
+    // between `.` and `:`, so unescaping it forms the RANGE .-: — which covers
+    // `/` and the digits — and the sanitizer would start accepting URIs it
+    // currently rejects (`a/b:c`, `a0b:c`). Do not "simplify" this line.
+    // eslint-disable-next-line no-useless-escape
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ['target'],

@@ -155,8 +155,11 @@ describe('assertPrefixed', () => {
     ).not.toThrow();
   });
 
-  it('allows plain DML with no object names to check', () => {
-    expect(assertPrefixed(PID, `UPDATE ${p}answers SET score = 1;`)).toEqual([]);
+  // This used to assert `[]`, because DML object names were not checked at all
+  // — which is precisely the gap that let a plugin read and empty host tables.
+  // DML now yields its table, and the plugin's own table is still allowed.
+  it('checks the table named by plain DML, and allows the plugin its own', () => {
+    expect(assertPrefixed(PID, `UPDATE ${p}answers SET score = 1;`)).toEqual([`${p}answers`]);
   });
 });
 
@@ -261,5 +264,73 @@ describe('readMigrations', () => {
     const second = (await readMigrations(dir, 'sqlite'))[0];
     expect(first.checksum).not.toBe(second.checksum);
     expect(first.checksum).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
+
+/**
+ * The isolation boundary, stated as cases.
+ *
+ * The guard previously matched only CREATE/ALTER/DROP of a table-like object
+ * and PASSED everything else, so every one of the "refuses" cases below used to
+ * succeed — including `SELECT email FROM users`. `hostApi` applies this same
+ * function to `api.db.query()`/`execute()`, so those were the live read and
+ * write paths, not just migrations.
+ */
+describe('assertPrefixed — host tables are unreachable by any verb', () => {
+  const P = 'org.example.x';
+  // The prefix is derived (and hashed), so the tests ask for it rather than
+  // hard-coding a name that would drift from tablePrefix().
+  const own = (suffix: string) => `${tablePrefix(P)}${suffix}`;
+
+  it.each([
+    ['reads', 'SELECT email, password FROM users'],
+    ['deletes', 'DELETE FROM users WHERE id > 0'],
+    ['updates', "UPDATE users SET name = 'x'"],
+    ['truncates', 'TRUNCATE TABLE users'],
+    ['empties without TABLE', 'TRUNCATE users'],
+    ['copies into a temp table', 'CREATE TEMPORARY TABLE stolen AS SELECT * FROM users'],
+    ['hides behind a view', 'CREATE OR REPLACE VIEW peek AS SELECT * FROM users'],
+    ['inserts into', "INSERT INTO users (email) VALUES ('a@b.c')"],
+    ['drops', 'DROP TABLE users'],
+  ])('refuses SQL that %s a host table', (_label, sql) => {
+    expect(() => assertPrefixed(P, sql)).toThrow(PluginSqlError);
+  });
+
+  it('refuses a join onto a host table even when the first table is its own', () => {
+    const sql = `SELECT * FROM ${own('scores')} s JOIN users u ON u.id = s.user_id`;
+    expect(() => assertPrefixed(P, sql)).toThrow(PluginSqlError);
+  });
+
+  it.each([
+    (o: (s: string) => string) => `SELECT * FROM ${o('scores')}`,
+    (o: (s: string) => string) => `DELETE FROM ${o('scores')} WHERE id = 1`,
+    (o: (s: string) => string) => `UPDATE ${o('scores')} SET score = 1`,
+    (o: (s: string) => string) => `INSERT INTO ${o('scores')} (score) VALUES (1)`,
+    (o: (s: string) => string) => `CREATE TABLE ${o('more')} (id INTEGER PRIMARY KEY)`,
+    (o: (s: string) => string) => `TRUNCATE TABLE ${o('scores')}`,
+  ])('allows the plugin its own tables (#%#)', (build) => {
+    expect(() => assertPrefixed(P, build(own))).not.toThrow();
+  });
+
+  it('allows a CTE name, which binds inside the statement rather than naming a table', () => {
+    const sql = `WITH recent AS (SELECT * FROM ${own('scores')}) SELECT * FROM recent`;
+    expect(() => assertPrefixed(P, sql)).not.toThrow();
+  });
+
+  it('still refuses a host table read from inside a CTE', () => {
+    expect(() => assertPrefixed(P, 'WITH leak AS (SELECT email FROM users) SELECT * FROM leak')).toThrow(
+      PluginSqlError,
+    );
+  });
+
+  it('refuses a schema-qualified escape in a data statement too', () => {
+    expect(() => assertPrefixed(P, 'SELECT * FROM public.users')).toThrow(/schema-qualified/);
+  });
+
+  it('is not fooled by a host table named inside a string literal', () => {
+    // stripNoise blanks string literals, so this must not be read as a table.
+    const sql = `INSERT INTO ${own('scores')} (note) VALUES ('FROM users')`;
+    expect(() => assertPrefixed(P, sql)).not.toThrow();
   });
 });

@@ -679,6 +679,11 @@ export type LectureSectionType =
   // Any other string, notably a plugin extension key. `(string & {})` keeps
   // editor autocomplete for the literals above instead of collapsing to
   // `string`, which is the whole reason for the idiom.
+  /* `string & {}` is the standard idiom for "this union, but any string is
+     also accepted" — it keeps editor autocomplete for the known members,
+     which a plain `string` would discard. Not the `{}`-as-any-value
+     mistake the rule is aimed at. */
+  // eslint-disable-next-line @typescript-eslint/ban-types
   | (string & {});
 
 // Section types for lecture editor

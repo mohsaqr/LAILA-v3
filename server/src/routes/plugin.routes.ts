@@ -31,6 +31,8 @@ import { pluginRegistry } from '../plugins/registry.js';
 import { pluginPath } from '../plugins/loader.js';
 import { parseExtensionKey } from '../plugins/manifest.js';
 import { createStoreApi, createDataApi } from '../plugins/store.js';
+import prisma from '../utils/prisma.js';
+import { courseRoleService } from '../services/courseRole.service.js';
 import { APP_VERSION } from '../config/buildInfo.js';
 
 const router = Router();
@@ -296,6 +298,93 @@ const validInstanceKey = (raw: unknown): string => {
   return raw;
 };
 
+/**
+ * Who a placement belongs to.
+ *
+ * The shape check above says an instanceKey is well-formed; it says nothing
+ * about whether the caller has any business with THAT placement. Without this,
+ * the only gate on writing a placement's configuration was the caller's global
+ * `isInstructor` flag — so any instructor could rewrite the block in any other
+ * teacher's course, and any signed-in student could read any placement's
+ * config, which is where a teacher-authored answer key lives.
+ *
+ * `lab:` resolves to the lab's owner rather than a course on purpose: a lab is
+ * attachable to many courses (`LabAssignment` is unique per lab+course), so its
+ * configuration is shared by all of them and no single course can own it.
+ */
+type Placement =
+  | { scope: 'course'; courseId: number }
+  | { scope: 'lab'; labId: number };
+
+const resolvePlacement = async (key: string): Promise<Placement> => {
+  const [kind, rawId] = key.split(':');
+  const id = Number(rawId);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError('That placement does not exist', 404);
+  }
+
+  if (kind === 'course' || kind === 'tool') {
+    // `course.tool` extensions are mounted per course, so the id is a course id.
+    const course = await prisma.course.findUnique({ where: { id }, select: { id: true } });
+    if (!course) throw new AppError('That placement does not exist', 404);
+    return { scope: 'course', courseId: course.id };
+  }
+
+  if (kind === 'section') {
+    const section = await prisma.lectureSection.findUnique({
+      where: { id },
+      select: { lecture: { select: { module: { select: { courseId: true } } } } },
+    });
+    const courseId = section?.lecture?.module?.courseId;
+    if (!courseId) throw new AppError('That placement does not exist', 404);
+    return { scope: 'course', courseId };
+  }
+
+  const lab = await prisma.customLab.findUnique({ where: { id }, select: { id: true } });
+  if (!lab) throw new AppError('That placement does not exist', 404);
+  return { scope: 'lab', labId: lab.id };
+};
+
+/** May this user CHANGE the placement's configuration? Authoring rights. */
+const assertMayConfigure = async (user: AuthRequest['user'], key: string): Promise<void> => {
+  if (!user) throw new AppError('Authentication required', 401);
+  const placement = await resolvePlacement(key);
+
+  if (placement.scope === 'course') {
+    if (await courseRoleService.isCourseStaff(user.id, placement.courseId, user.isAdmin)) return;
+    throw new AppError('You do not have authoring rights in that course', 403);
+  }
+
+  if (user.isAdmin) return;
+  const lab = await prisma.customLab.findUnique({
+    where: { id: placement.labId },
+    select: { createdBy: true },
+  });
+  if (lab?.createdBy === user.id) return;
+  throw new AppError('You do not have authoring rights over that lab', 403);
+};
+
+/** May this user READ the placement's configuration? Membership is enough. */
+const assertMayReadConfig = async (user: AuthRequest['user'], key: string): Promise<void> => {
+  if (!user) throw new AppError('Authentication required', 401);
+  const placement = await resolvePlacement(key);
+
+  if (placement.scope === 'course') {
+    if (user.isAdmin) return;
+    if (await courseRoleService.isCourseStaff(user.id, placement.courseId, false)) return;
+    const enrolled = await prisma.enrollment.findUnique({
+      where: { userId_courseId: { userId: user.id, courseId: placement.courseId } },
+      select: { id: true },
+    });
+    if (enrolled) return;
+    throw new AppError('You are not a member of that course', 403);
+  }
+
+  // A lab's config is readable by anyone who can reach the lab; the lab routes
+  // own that decision, and a plugin block adds no separate secret here.
+  return;
+};
+
 /** Read the calling user's own state for one extension instance. */
 router.get(
   '/:id/state/:extensionId',
@@ -359,6 +448,7 @@ router.get(
     const id = pluginIdParam(req.params.id);
     requireExtension(id, req.params.extensionId);
     const key = validInstanceKey(req.query.instanceKey);
+    await assertMayReadConfig(req.user, key);
     const config = await createStoreApi(id).get(`config:${req.params.extensionId}:${key}`);
     res.json({ success: true, data: config ?? {} });
   }),
@@ -379,6 +469,9 @@ router.put(
     const id = pluginIdParam(req.params.id);
     requireExtension(id, req.params.extensionId);
     const key = validInstanceKey(req.body?.instanceKey);
+    // The global flag above says "an instructor somewhere"; this says "staff of
+    // THIS placement's course". Both are needed.
+    await assertMayConfigure(user, key);
     const config = req.body?.config;
     if (!config || typeof config !== 'object' || Array.isArray(config)) {
       throw new AppError('Body must be { instanceKey, config: { ... } }', 400);

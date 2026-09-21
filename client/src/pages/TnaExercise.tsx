@@ -50,6 +50,7 @@ import type { TnaGeneratedData } from '../components/ai/AIDatasetGenerator';
 import { LabAIAssistant } from '../components/ai/LabAIAssistant';
 import { useTracker } from '../services/tracker';
 import { exportRowsAsCSV, exportMatrixAsCSV, exportCentralityAsCSV } from '../utils/csvExport';
+import { parseFileUrls } from '../utils/fileUrls';
 
 /* ── Types ── */
 
@@ -98,7 +99,7 @@ const ToggleGroup = ({ options, value, onChange }: {
 /* ── Main Component ── */
 
 export const TnaExercise = () => {
-  const { t } = useTranslation(['courses']);
+  const { t } = useTranslation(['courses', 'common']);
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId?: string }>();
   const [searchParams] = useSearchParams();
@@ -1260,8 +1261,17 @@ export const TnaExercise = () => {
                   <p className="mb-4 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{mySubmission.content}</p>
                 )}
                 {(() => {
-                  let fileUrls: string[] = [];
-                  try { const p = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : []; fileUrls = Array.isArray(p) ? p.filter((v: unknown): v is string => typeof v === 'string') : []; } catch {}
+                  // Shared parser: an unreadable list is reported, not shown
+                  // as "no attachments". See utils/fileUrls.ts.
+                  const parsedFiles = parseFileUrls(mySubmission.fileUrls);
+                  const fileUrls: string[] = parsedFiles.ok ? parsedFiles.urls : [];
+                  if (!parsedFiles.ok) {
+                    return (
+                      <p role="alert" className="mb-4 text-sm text-amber-700 dark:text-amber-400">
+                        {t('common:attachments_unreadable')}
+                      </p>
+                    );
+                  }
                   return fileUrls.length > 0 ? (
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">{t('file_attachments', { defaultValue: 'File Attachments' })}</label>

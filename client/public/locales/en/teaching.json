@@ -1606,5 +1606,6 @@
   "import_report_warnings": "{{count}} warning(s) — check the course before publishing",
   "failed_to_export_course": "Failed to export course",
   "failed_to_import_course": "Failed to import course",
-  "failed_to_duplicate_course": "Failed to duplicate course"
+  "failed_to_duplicate_course": "Failed to duplicate course",
+  "dataset_load_failed": "That dataset could not be loaded. Please try again."
 }

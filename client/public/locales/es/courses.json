@@ -667,7 +667,7 @@
   "next_question": "Siguiente Pregunta",
   "try_again": "Intentar de Nuevo",
   "new_questions": "Nuevas Preguntas",
-  "score_summary": "Resumen de Puntuación",
+  "score_summary": "Acertaste {{correct}} de {{total}}",
   "questions_completed": "Preguntas Completadas",
   "practice_quiz_title": "Cuestionario de Práctica",
   "practice_quiz_description": "Pon a prueba tu comprensión de esta lección",

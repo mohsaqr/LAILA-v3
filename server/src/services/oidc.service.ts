@@ -262,11 +262,27 @@ export async function consumeAuthCode(
 ): Promise<RedeemedCode | null> {
   if (!code) return null;
 
+  // Redemption is a delete, so "the row was not there" IS the answer for an
+  // unknown or already-used code (P2025). Everything else — pool exhaustion, a
+  // statement timeout, a dropped connection — must NOT be reported as a bad
+  // code. It previously was: any Prisma failure returned null, the route
+  // answered `invalid_grant`, and the relying party told the user their login
+  // was invalid. That is exactly backwards during a login spike, when the pool
+  // is saturated precisely because many codes are being redeemed at once, and
+  // nothing was logged to contradict it. Rethrowing lets asyncHandler surface a
+  // 500 that an operator can actually see.
   let row;
   try {
     row = await prisma.oidcAuthCode.delete({ where: { code } });
-  } catch {
-    return null; // unknown or already-redeemed code
+  } catch (err) {
+    if ((err as { code?: string })?.code === 'P2025') {
+      return null; // unknown or already-redeemed code
+    }
+    authLogger.error(
+      { err, event: 'oidc.code_redemption_failed' },
+      'authorization code redemption failed for a reason other than an unknown code',
+    );
+    throw err;
   }
 
   if (row.expiresAt.getTime() < Date.now()) return null;

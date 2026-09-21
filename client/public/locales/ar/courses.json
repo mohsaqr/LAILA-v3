@@ -667,7 +667,7 @@
   "next_question": "السؤال التالي",
   "try_again": "حاول مرة أخرى",
   "new_questions": "أسئلة جديدة",
-  "score_summary": "ملخص النتائج",
+  "score_summary": "أجبت إجابة صحيحة عن {{correct}} من أصل {{total}}",
   "questions_completed": "الأسئلة المكتملة",
   "practice_quiz_title": "اختبار التمرين",
   "practice_quiz_description": "اختبر فهمك لهذه المحاضرة",

@@ -268,6 +268,14 @@ screen. Phase 3 adds a few days. Phase 4 is comparable to Phases 1–3 together.
 
 ## Verification
 
+> **The executable version of this section now lives in
+> [`TEST_PLAN.md` §6](./TEST_PLAN.md#6-lti-13-conformance-test-plan)**, with the
+> negative matrix, the layer plan and the exit criteria. What follows is the
+> original intent, kept because it is still the reason any of it matters.
+>
+> Status: Layers 1 (unit) done; Layer 2 (protocol smoke) and Layer 4 (real tool
+> interop) **not yet run**. LTI is not proven until they are.
+
 LTI is a certification-driven spec, and "it works with the one tool we tried" is
 not evidence. Before calling it done:
 

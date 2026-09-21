@@ -40,7 +40,6 @@
   "lecture_ai_helper": "Lecture AI Helper",
   "explain": "Explain",
   "explain_this": "Explain This",
-  "ask_question": "Ask a Question",
   "explain_thread": "Explanation Thread",
   "new_thread": "New Thread",
 
@@ -86,7 +85,6 @@
   "manual": "Manual",
   "auto": "Auto",
   "team": "Team",
-  "clear": "Clear",
   "send": "Send",
   "manual_title": "Manual: Choose which tutor responds",
   "auto_title": "Auto-Route: AI picks the best tutor",

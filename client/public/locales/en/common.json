@@ -209,5 +209,6 @@
   "change": "Change",
   "duplicate": "Duplicate",
   "plugin_unavailable": "This content needs a plugin that is not currently available.",
-  "plugin_widgets": "Plugin panels"
+  "plugin_widgets": "Plugin panels",
+  "attachments_unreadable": "The attachment list for this submission could not be read, so files are not shown. They have not been deleted."
 }

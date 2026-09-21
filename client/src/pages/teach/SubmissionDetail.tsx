@@ -23,6 +23,7 @@ import { Breadcrumb } from '../../components/common/Breadcrumb';
 import { buildTeachingBreadcrumb } from '../../utils/breadcrumbs';
 import { resolveFileUrl } from '../../api/client';
 import { displayFileName } from '../../utils/fileName';
+import { parseFileUrls } from '../../utils/fileUrls';
 import { sanitizeHtml, isHtmlContent } from '../../utils/sanitize';
 import activityLogger from '../../services/activityLogger';
 import { TrackedContent } from '../../components/common/TrackedContent';
@@ -140,15 +141,11 @@ export const SubmissionDetail = () => {
   }
 
   const isGraded = submission.status === 'graded';
-  let fileUrls: string[] = [];
-  try {
-    const parsed = submission.fileUrls ? JSON.parse(submission.fileUrls) : [];
-    fileUrls = Array.isArray(parsed)
-      ? parsed.filter((v): v is string => typeof v === 'string')
-      : [];
-  } catch {
-    fileUrls = [];
-  }
+  // An unreadable list must not render as "no files" — an instructor would
+  // grade a submission as though nothing had been handed in.
+  const parsedFiles = parseFileUrls(submission.fileUrls);
+  const fileUrls = parsedFiles.ok ? parsedFiles.urls : [];
+  const attachmentsUnreadable = !parsedFiles.ok;
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString(undefined, {
@@ -255,6 +252,16 @@ export const SubmissionDetail = () => {
       )}
 
       {/* File Attachments */}
+      {attachmentsUnreadable && (
+        <Card className="mb-6">
+          <CardBody>
+            <p role="alert" className="text-sm text-amber-800 dark:text-amber-300">
+              {t('common:attachments_unreadable')}
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
       {fileUrls.length > 0 && (
         <Card className="mb-6">
           <CardBody>
@@ -311,7 +318,7 @@ export const SubmissionDetail = () => {
       )}
 
       {/* No answer provided */}
-      {!submission.content && fileUrls.length === 0 && (
+      {!submission.content && fileUrls.length === 0 && !attachmentsUnreadable && (
         <Card className="mb-6">
           <CardBody>
             <div className="text-center py-8 text-gray-400">

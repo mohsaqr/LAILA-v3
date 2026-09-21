@@ -300,6 +300,12 @@ export const LectureView = () => {
           const url = resolveFileUrl(section.fileUrl!);
           try {
             const res = await fetch(url);
+            // `fetch` resolves for 404/403 too, so without this the error page
+            // was saved as the blob — the student got "lecture-notes.pdf"
+            // containing HTML, and the download LOOKED successful. Falling
+            // through to the catch opens the URL instead, which at least shows
+            // them the real failure.
+            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             const a = document.createElement('a');

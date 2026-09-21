@@ -214,7 +214,14 @@ class ActivityLogger {
       const baseURL = apiClient.defaults.baseURL || '/api';
       const token = useAuthStore.getState().token;
 
-      // Use fetch with keepalive to survive page unload (sendBeacon can't set auth headers)
+      // Use fetch with keepalive to survive page unload (sendBeacon can't set auth headers).
+      //
+      // The rejection handler is not optional: this promise is deliberately not
+      // awaited (the page is going away), and an unhandled rejection — offline,
+      // expired token, or a body over keepalive's 64 KB limit — surfaces as a
+      // console error in the student's browser for a purely background concern.
+      // Losing the events is accepted here; losing them *silently* is not, so
+      // the failure is at least recorded where a developer can see it.
       fetch(`${baseURL}/activity-log/batch`, {
         method: 'POST',
         headers: {
@@ -223,6 +230,8 @@ class ActivityLogger {
         },
         body: JSON.stringify({ activities: enrichedActivities }),
         keepalive: true,
+      }).catch((err) => {
+        console.warn('[activityLogger] final flush failed; these events are lost', err);
       });
 
       this.pendingActivities = [];

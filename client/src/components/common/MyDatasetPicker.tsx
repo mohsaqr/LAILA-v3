@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Database, FileSpreadsheet, X, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { agentAssignmentsApi } from '../../api/agentAssignments';
 import { resolveFileUrl } from '../../api/client';
 import { UserDataset } from '../../types';
@@ -27,11 +28,25 @@ export const MyDatasetPicker = ({ isOpen, onClose, onSelect }: MyDatasetPickerPr
     try {
       const url = resolveFileUrl(ds.fileUrl);
       const response = await fetch(url);
+      // `fetch` does NOT reject on 404/403/500 — it resolves with the error
+      // page. Without this check `response.text()` returned nginx's
+      // "<html>404 Not Found</html>" and handed it to the caller AS THE
+      // DATASET, which then fails much later as an unreadable CSV.
+      if (!response.ok) {
+        throw new Error(`${response.status} ${response.statusText}`);
+      }
       const csvText = await response.text();
       onSelect(csvText, ds);
       onClose();
-    } catch {
-      // silently fail — user can try again
+    } catch (err) {
+      // The modal used to close with no message, leaving the user unable to
+      // tell a failure from a mis-click.
+      toast.error(
+        t('dataset_load_failed', {
+          defaultValue: 'That dataset could not be loaded. Please try again.',
+        }),
+      );
+      console.error('[MyDatasetPicker] failed to load dataset', ds.id, err);
     } finally {
       setLoading(null);
     }

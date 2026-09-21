@@ -207,5 +207,6 @@
   "showing_range": "Näytetään {{from}}–{{to}} / {{total}}",
   "duplicate": "Monista",
   "plugin_unavailable": "Tämä sisältö vaatii lisäosan, joka ei ole tällä hetkellä käytettävissä.",
-  "plugin_widgets": "Lisäosien paneelit"
+  "plugin_widgets": "Lisäosien paneelit",
+  "attachments_unreadable": "Tämän palautuksen liiteluetteloa ei voitu lukea, joten tiedostoja ei näytetä. Niitä ei ole poistettu."
 }

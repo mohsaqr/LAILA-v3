@@ -140,6 +140,9 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
           </div>
         );
       }
+      // Braced: a `const` declared bare in a case block is scoped to the whole
+      // switch, so it is visible (in the temporal dead zone) to sibling cases.
+      {
       const isImage = section.fileType?.startsWith('image/');
       const isPdf = section.fileType === 'application/pdf';
       const handleFileDownload = () => {
@@ -176,6 +179,7 @@ const SectionRenderer = ({ section, courseId, lectureId, moduleId, onOpenContent
           )}
         </div>
       );
+      }
 
     case 'assignment':
       return (

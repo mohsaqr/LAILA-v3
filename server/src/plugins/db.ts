@@ -108,9 +108,30 @@ function stripNoise(sql: string): string {
     .replace(/\s+/g, ' ');
 }
 
-/** Every DDL verb that names an object we need to check the prefix of. */
+/**
+ * Every place a statement can NAME an object whose prefix we must check.
+ *
+ * Originally this covered only `CREATE|ALTER|DROP` of a table-like object, and
+ * `assertPrefixed` passes anything it does not match. That left the guard wide
+ * open to the cases that matter most for isolation: `SELECT … FROM users`,
+ * `DELETE FROM users`, `TRUNCATE TABLE users` and `CREATE TEMPORARY TABLE x AS
+ * SELECT * FROM users` all sailed through, even though `hostApi` applies this
+ * function to `api.db.query()`/`execute()` precisely to stop a plugin reaching
+ * into host tables. Only `DROP TABLE users` was ever caught.
+ *
+ * Two regexes now, both anchored on a keyword that is always followed by an
+ * object name. The second covers DML and is the reason a plugin can no longer
+ * read or empty a table it does not own.
+ */
 const DDL_RE =
-  /\b(?:CREATE|ALTER|DROP)\s+(?:UNIQUE\s+)?(?:TABLE|INDEX|VIEW|TRIGGER|SEQUENCE)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?("?[A-Za-z0-9_.]+"?)/gi;
+  /\b(?:CREATE|ALTER|DROP)\s+(?:OR\s+REPLACE\s+)?(?:GLOBAL\s+|LOCAL\s+)?(?:TEMP|TEMPORARY|UNLOGGED|MATERIALIZED|UNIQUE)?\s*(?:TABLE|INDEX|VIEW|TRIGGER|SEQUENCE)\s+(?:IF\s+(?:NOT\s+)?EXISTS\s+)?("?[A-Za-z0-9_.]+"?)/gi;
+
+/** Table references in data statements: the read/write surface. */
+const DML_RE =
+  /\b(?:FROM|JOIN|INTO|UPDATE|TRUNCATE(?:\s+TABLE)?)\s+(?:ONLY\s+)?("?[A-Za-z0-9_.]+"?)/gi;
+
+/** Names bound by a CTE are not tables; `FROM cte` must not be refused. */
+const CTE_RE = /\b(?:WITH|,)\s+(?:RECURSIVE\s+)?("?[A-Za-z0-9_]+"?)\s+AS\s*\(/gi;
 
 export class PluginSqlError extends Error {
   constructor(message: string) {
@@ -129,8 +150,14 @@ export function assertPrefixed(pluginId: string, sql: string): string[] {
   const prefix = tablePrefix(pluginId);
   const cleaned = stripNoise(sql);
   const found: string[] = [];
-  for (const m of cleaned.matchAll(DDL_RE)) {
-    const raw = m[1].replace(/"/g, '');
+
+  // Bound by the statement itself, so not host tables.
+  const cteNames = new Set<string>();
+  for (const m of cleaned.matchAll(CTE_RE)) {
+    cteNames.add(m[1].replace(/"/g, '').toLowerCase());
+  }
+
+  const check = (raw: string, verb: 'name' | 'touch') => {
     // A schema-qualified name is a way around the prefix, so it is refused
     // outright rather than checked on its last segment.
     if (raw.includes('.')) {
@@ -138,15 +165,40 @@ export function assertPrefixed(pluginId: string, sql: string): string[] {
         `Plugin "${pluginId}" may not use a schema-qualified name: "${raw}"`,
       );
     }
-    if (!raw.toLowerCase().startsWith(prefix)) {
+    const lower = raw.toLowerCase();
+    if (cteNames.has(lower)) return;
+    if (!lower.startsWith(prefix)) {
       throw new PluginSqlError(
-        `Plugin "${pluginId}" may only create objects prefixed "${prefix}" — found "${raw}"`,
+        verb === 'name'
+          ? `Plugin "${pluginId}" may only create objects prefixed "${prefix}" — found "${raw}"`
+          : `Plugin "${pluginId}" may only read or write tables prefixed "${prefix}" — found "${raw}"`,
       );
     }
     found.push(raw);
+  };
+
+  for (const m of cleaned.matchAll(DDL_RE)) check(m[1].replace(/"/g, ''), 'name');
+
+  for (const m of cleaned.matchAll(DML_RE)) {
+    const raw = m[1].replace(/"/g, '');
+    // `FROM (SELECT …)` and `FROM SELECT` name no table. The paren case never
+    // reaches here (the regex needs a word), but a bare keyword can.
+    if (SQL_NON_TABLE_WORDS.has(raw.toLowerCase())) continue;
+    check(raw, 'touch');
   }
+
   return found;
 }
+
+/**
+ * Words that can follow FROM/JOIN/INTO and are not table names.
+ *
+ * Kept deliberately small. Anything not listed here is treated as a table and
+ * must carry the prefix — an unknown construct is refused rather than allowed,
+ * because the cost of a false refusal is a plugin author rewriting a query, and
+ * the cost of a false pass is a plugin reading the users table.
+ */
+const SQL_NON_TABLE_WORDS = new Set(['select', 'lateral', 'unnest', 'values', 'generate_series']);
 
 export interface PluginMigrationFile {
   /** Filename without dialect suffix or extension, e.g. "001_init". */

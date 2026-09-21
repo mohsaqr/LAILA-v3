@@ -40,7 +40,6 @@
   "lecture_ai_helper": "Asistente IA de lecciones",
   "explain": "Explicar",
   "explain_this": "Explicar esto",
-  "ask_question": "Hacer una pregunta",
   "explain_thread": "Hilo de explicación",
   "new_thread": "Nuevo hilo",
 
@@ -86,7 +85,6 @@
   "manual": "Manual",
   "auto": "Auto",
   "team": "Equipo",
-  "clear": "Limpiar",
   "send": "Enviar",
   "manual_title": "Manual: Elige qué tutor responde",
   "auto_title": "Auto-Ruta: La IA elige el mejor tutor",

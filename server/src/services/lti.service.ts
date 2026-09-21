@@ -258,7 +258,20 @@ export async function consumeLaunch(
   if (launch.toolId !== toolId) throw new LtiError('invalid_request', 'Launch does not belong to this tool');
   if (launch.userId !== userId) throw new LtiError('login_required', 'Launch belongs to another user');
 
-  await prisma.ltiLaunch.update({ where: { id: hint }, data: { consumedAt: new Date() } });
+  // Claim the launch ATOMICALLY. The checks above read `consumedAt` and this
+  // write sets it, so doing it as a plain `update` left a window in which two
+  // concurrent /authorize requests carrying the same hint both saw
+  // `consumedAt: null`, both proceeded, and TWO signed id_tokens were issued
+  // for one launch — a replayed identity assertion, which is the exact thing
+  // single-use is here to prevent. Narrowing the WHERE to `consumedAt: null`
+  // makes the database the arbiter: exactly one caller can match.
+  const claimed = await prisma.ltiLaunch.updateMany({
+    where: { id: hint, consumedAt: null },
+    data: { consumedAt: new Date() },
+  });
+  if (claimed.count !== 1) {
+    throw new LtiError('invalid_request', 'This launch has already been used');
+  }
   return launch;
 }
 

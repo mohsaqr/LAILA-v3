@@ -54,25 +54,105 @@ const esc = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
+ * Serialise a value for embedding inside a `<script>` block.
+ *
+ * `JSON.stringify` alone is NOT safe here: it does not escape `</script`, so a
+ * string containing one closes the block early and everything after it parses
+ * as HTML. The values interpolated below come from a tool-signed token, and a
+ * registered tool is a separate trust domain in LTI's threat model — a tool
+ * could put `</script><script>…` in a content-item title. Also escapes the two
+ * line separators that are valid JSON but terminate a JavaScript line.
+ */
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value ?? null)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
+}
+
+/** The origin of a URL, for a `form-action` directive. */
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Send one of this router's standalone HTML documents under its OWN CSP.
+ *
+ * These pages are not part of the SPA and must not inherit the app's policy.
+ * The global helmet policy (`server/src/index.ts`) sets `script-src-attr 'none'`
+ * and `form-action 'self'`, and BOTH of those block a launch outright:
+ * `script-src-attr` kills the auto-submit, and `form-action 'self'` blocks the
+ * POST to the tool even if the learner clicks the noscript button by hand. A
+ * launch could not complete in any browser. Verified in Chromium — the console
+ * reports "Sending form data to '<tool>' violates … form-action 'self'".
+ *
+ * So each document declares what it actually needs and nothing else. The result
+ * is TIGHTER than the app policy everywhere except the one origin the launch
+ * must post to: no default-src, no styles, no images, no base URI, and script
+ * limited to a per-response nonce.
+ */
+function sendLtiDocument(
+  res: Response,
+  html: string,
+  opts: { nonce: string; formAction?: string | null },
+): void {
+  const action = opts.formAction ? originOf(opts.formAction) : null;
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'none'",
+      `script-src 'nonce-${opts.nonce}'`,
+      action ? `form-action ${action}` : "form-action 'none'",
+      "base-uri 'none'",
+      // Framed by LAILA's own SPA during an in-lesson launch; same origin in
+      // production (nginx) and through Vite's /api proxy in development.
+      "frame-ancestors 'self'",
+    ].join('; '),
+  );
+  res.type('html').send(html);
+}
+
+/**
  * An auto-submitting form.
  *
  * Used for both legs. It is the mechanism `response_mode=form_post` names, and
  * the reason a launch keeps its token out of the URL. `noscript` gives a
  * working button rather than a blank page when scripting is blocked.
+ *
+ * The submit runs from a nonce'd `<script>`, not a `body onload=` attribute:
+ * an inline event handler is governed by `script-src-attr`, which no nonce can
+ * satisfy — only `'unsafe-inline'` would, and that is not a trade worth making
+ * on a page that carries a signed identity assertion.
  */
-function autoPostForm(action: string, fields: Record<string, string>, title: string): string {
+function autoPostForm(
+  action: string,
+  fields: Record<string, string>,
+  title: string,
+  nonce: string,
+): string {
   const inputs = Object.entries(fields)
     .filter(([, v]) => v !== undefined && v !== null)
     .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(String(v))}">`)
     .join('\n    ');
   return `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title></head>
-<body onload="document.forms[0].submit()">
+<body>
   <form method="POST" action="${esc(action)}">
     ${inputs}
     <noscript><button type="submit">Continue</button></noscript>
   </form>
+  <script nonce="${esc(nonce)}">document.forms[0].submit();</script>
 </body></html>`;
+}
+
+/** A fresh CSP nonce. 128 bits of base64url, per response. */
+function cspNonce(): string {
+  return crypto.randomBytes(16).toString('base64url');
 }
 
 /** Report an error the way a tool expects, without leaking internals. */
@@ -131,30 +211,103 @@ router.post(
       if (!roles.length) throw new AppError('You are not a member of this course', 403);
     }
 
+    // A sectionId is only meaningful inside its own course. Unchecked, a member
+    // of course A could pass a section id from course B and have B's section
+    // title placed in the resource-link claim sent to the third-party tool — a
+    // small but real cross-course disclosure. A non-numeric value also reached
+    // Prisma and 500'd.
+    let resolvedSectionId: number | null = null;
+    if (sectionId !== undefined && sectionId !== null) {
+      const asNumber = Number(sectionId);
+      if (!Number.isInteger(asNumber) || asNumber <= 0) {
+        throw new AppError('sectionId must be a positive integer', 400);
+      }
+      if (!courseId) throw new AppError('sectionId requires a courseId', 400);
+      const section = await prisma.lectureSection.findUnique({
+        where: { id: asNumber },
+        select: { id: true, lecture: { select: { module: { select: { courseId: true } } } } },
+      });
+      if (!section || section.lecture?.module?.courseId !== courseId) {
+        throw new AppError('That section is not part of this course', 400);
+      }
+      resolvedSectionId = section.id;
+    }
+
     const hint = await startLaunch({
       toolId: tool.id,
       userId: req.user!.id,
       courseId: courseId ?? null,
-      sectionId: sectionId ?? null,
+      sectionId: resolvedSectionId,
       messageType: kind,
     });
 
     // Opportunistic cleanup; a failure here must not fail a launch.
     void pruneExpiredLaunches().catch(() => undefined);
 
+    // Return a URL, not the document.
+    //
+    // The client used to POST here with its JWT and inject the HTML into an
+    // iframe via `srcdoc`. That cannot work: a srcdoc iframe inherits the
+    // EMBEDDER's CSP — the SPA's — so the tailored policy this route sets was
+    // never consulted, and the SPA's `form-action 'self'` blocked the POST to
+    // the tool. Handing back a URL lets the iframe perform a real navigation,
+    // which is governed by the response's own headers.
+    res.json({ success: true, data: { launchId: hint, startUrl: `/api/lti/launch/${hint}/start` } });
+  }),
+);
+
+/**
+ * Render the initiation form for a launch created by the POST above.
+ *
+ * Deliberately NOT behind `authenticateToken`. This URL is loaded as an iframe
+ * navigation, and an iframe sends no Authorization header — LAILA keeps its JWT
+ * in localStorage, not a cookie, so there is no session to read here. Requiring
+ * one would simply make the endpoint unreachable.
+ *
+ * That is safe because of what this document is and is not:
+ *
+ *  - The launch id is a single-use, short-lived, unguessable identifier that
+ *    the caller can only have obtained from the authenticated POST.
+ *  - The form carries only OIDC *initiation* parameters. `iss`, `client_id`,
+ *    `lti_deployment_id` and `target_link_uri` are public registration values;
+ *    `login_hint` is the launcher's own user id. No token, no claim, no secret.
+ *  - The step that actually mints an identity assertion is `/authorize`, and
+ *    `consumeLaunch` there requires the launch to belong to the currently
+ *    signed-in user. Holding this page gets an attacker nothing without also
+ *    holding that session.
+ */
+router.get(
+  '/launch/:launchId/start',
+  asyncHandler(async (req: Request, res: Response) => {
+    if (!isOidcEnabled()) throw new AppError('LTI is not configured on this instance', 503);
+
+    const launch = await prisma.ltiLaunch.findUnique({
+      where: { id: String(req.params.launchId) },
+    });
+    // One 404 for unknown, spent and expired alike: distinguishing them would
+    // turn this into an oracle for guessing launch ids.
+    if (!launch || launch.consumedAt || launch.expiresAt.getTime() < Date.now()) {
+      throw new AppError('This launch is no longer available', 404);
+    }
+
+    const tool = await prisma.ltiTool.findUnique({ where: { id: launch.toolId } });
+    if (!tool || !tool.isActive) throw new AppError('Tool not available', 404);
+
+    const nonce = cspNonce();
     const html = autoPostForm(
       tool.loginUrl,
       {
         iss: process.env.OIDC_ISSUER || '',
-        login_hint: String(req.user!.id),
-        lti_message_hint: hint,
+        login_hint: String(launch.userId),
+        lti_message_hint: launch.id,
         target_link_uri: tool.targetLinkUri,
         client_id: tool.clientId,
         lti_deployment_id: tool.deploymentId,
       },
       `Opening ${tool.name}`,
+      nonce,
     );
-    res.type('html').send(html);
+    sendLtiDocument(res, html, { nonce, formAction: tool.loginUrl });
   }),
 );
 
@@ -266,12 +419,16 @@ const authorize = asyncHandler(async (req: AuthRequest, res: Response) => {
       'lti: launch issued',
     );
 
-    res.type('html').send(
+    const nonce = cspNonce();
+    sendLtiDocument(
+      res,
       autoPostForm(
         q.redirect_uri,
         { id_token: idToken, ...(q.state ? { state: q.state } : {}) },
         `Launching ${tool.name}`,
+        nonce,
       ),
+      { nonce, formAction: q.redirect_uri },
     );
   } catch (err) {
     ltiErrorResponse(res, err);
@@ -317,18 +474,30 @@ router.post(
 
       // The items are handed to the opener, which is the teacher's editor;
       // persisting them is the client's job, under the teacher's control.
-      res.type('html').send(`<!DOCTYPE html>
+      // targetOrigin is the SPA's own origin. It used to fall back to '*',
+      // which broadcasts the selection to whatever opened the window; refusing
+      // to post is the safer failure when CLIENT_URL is unset.
+      const targetOrigin = process.env.CLIENT_URL?.split(',')[0]?.trim() || '';
+      const nonce = cspNonce();
+      sendLtiDocument(
+        res,
+        `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Content selected</title></head>
 <body>
   <p>Returning your selection…</p>
-  <script>
-    window.opener && window.opener.postMessage(
-      { source: 'laila-lti-deep-link', toolId: ${JSON.stringify(tool.id)}, items: ${JSON.stringify(items)} },
-      ${JSON.stringify(process.env.CLIENT_URL?.split(',')[0] ?? '*')}
-    );
+  <script nonce="${esc(nonce)}">
+    var target = ${jsonForScript(targetOrigin)};
+    if (window.opener && target) {
+      window.opener.postMessage(
+        { source: 'laila-lti-deep-link', toolId: ${jsonForScript(tool.id)}, items: ${jsonForScript(items)} },
+        target
+      );
+    }
     window.close();
   </script>
-</body></html>`);
+</body></html>`,
+        { nonce },
+      );
     } catch (err) {
       ltiErrorResponse(res, err);
     }

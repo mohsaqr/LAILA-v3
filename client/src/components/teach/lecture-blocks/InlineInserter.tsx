@@ -11,6 +11,11 @@ type BuiltinInsertableType = Extract<LectureSection['type'], 'text' | 'file' | '
  * plugin's `plugin:<id>:<ext>` key. A plain string union rather than a
  * closed enum, because the set of plugin blocks is only known at runtime.
  */
+  /* `string & {}` is the standard idiom for "this union, but any string is
+     also accepted" — it keeps editor autocomplete for the known members,
+     which a plain `string` would discard. Not the `{}`-as-any-value
+     mistake the rule is aimed at. */
+  // eslint-disable-next-line @typescript-eslint/ban-types
 export type InsertableType = BuiltinInsertableType | (string & {});
 
 interface InlineInserterProps {

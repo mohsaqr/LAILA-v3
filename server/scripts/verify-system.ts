@@ -82,19 +82,31 @@ const checks: Check[] = [
   {
     name: 'Rate Limiting Active',
     test: async () => {
+      // This check used to hardcode `pass: true` and answer "Could not test
+      // rate limiting" from its own catch block, so it reported green whether
+      // the limiter was mounted, misconfigured or absent. It verified nothing.
+      //
+      // Tripping a limit is the wrong probe anyway: `/api` allows 300 req/min,
+      // so a burst of 10 proves nothing, and a burst of 301 would poison the
+      // window for whoever runs this next. Instead assert the evidence the
+      // limiter leaves on every response — express-rate-limit is configured
+      // with `standardHeaders: true`, so a mounted limiter MUST emit
+      // RateLimit-Policy/Limit. Absent headers mean no limiter is in the chain,
+      // which is a real finding on a public deployment.
       try {
-        // Make rapid requests to trigger rate limit
-        const promises = Array.from({ length: 10 }, () =>
-          fetch(`${BASE_URL}/api/health`)
-        );
-        const responses = await Promise.all(promises);
-        const hasRateLimit = responses.some(r => r.status === 429);
-        return {
-          pass: true, // Rate limiting is optional
-          message: hasRateLimit ? 'Rate limiting active' : 'No rate limit triggered (OK)',
-        };
+        const res = await fetch(`${BASE_URL}/api/health`);
+        const policy = res.headers.get('ratelimit-policy');
+        const limit = res.headers.get('ratelimit-limit');
+        if (!policy && !limit) {
+          return {
+            pass: false,
+            message: 'No RateLimit-* headers — the limiter is not mounted on /api',
+          };
+        }
+        return { pass: true, message: `Policy: ${policy ?? `limit ${limit}`}` };
       } catch (e: any) {
-        return { pass: true, message: 'Could not test rate limiting' };
+        // A failure to reach the server is a failure, not an excuse.
+        return { pass: false, message: `Could not test rate limiting: ${e?.message ?? e}` };
       }
     },
   },

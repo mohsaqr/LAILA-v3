@@ -128,7 +128,7 @@ export const LecturePracticeMode = ({ lectureId, lectureTitle: _lectureTitle, on
   // Calculate score
   const calculateScore = () => {
     let correct = 0;
-    let total = questions.length;
+    const total = questions.length;
     Object.values(answers).forEach((a) => {
       if (a.isCorrect) correct++;
     });
@@ -284,7 +284,7 @@ export const LecturePracticeMode = ({ lectureId, lectureTitle: _lectureTitle, on
 
             let bgColor = colors.bgSecondary;
             let borderColor = colors.border;
-            let textColor = colors.textPrimary;
+            const textColor = colors.textPrimary;
 
             if (showResult) {
               if (isCorrectAnswer) {

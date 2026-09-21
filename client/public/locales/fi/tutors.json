@@ -40,7 +40,6 @@
   "lecture_ai_helper": "Luennon AI-apuri",
   "explain": "Selitä",
   "explain_this": "Selitä tämä",
-  "ask_question": "Esitä kysymys",
   "explain_thread": "Selityskeskustelu",
   "new_thread": "Uusi keskustelu",
 
@@ -86,7 +85,6 @@
   "manual": "Manuaalinen",
   "auto": "Automaattinen",
   "team": "Tiimi",
-  "clear": "Tyhjennä",
   "send": "Lähetä",
   "manual_title": "Manuaalinen: Valitse mikä tutori vastaa",
   "auto_title": "Automaattinen reititys: AI valitsee parhaan tutorin",

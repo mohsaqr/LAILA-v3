@@ -186,6 +186,11 @@ export interface PluginHostApi {
 }
 
 /** Shortest interval a plugin job may ask for, so a typo cannot spin a core. */
+/** Redirect hops a plugin's fetch may follow before we give up. */
+const MAX_FETCH_REDIRECTS = 5;
+/** Statuses that carry a Location we must re-check against the allowlist. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 export const MIN_JOB_INTERVAL_MS = 10_000;
 
 /**
@@ -406,19 +411,43 @@ export function createHostApi(
 
     async fetch(url, init) {
       require('network');
-      let origin: string;
-      try {
-        origin = new URL(url).origin;
-      } catch {
-        throw new Error(`Plugin "${pluginId}" passed an invalid URL to fetch: "${url}"`);
+
+      // Every hop is checked, not just the first.
+      //
+      // Checking only the initial URL and then handing off to `globalThis.fetch`
+      // — which follows redirects by default — made the allowlist advisory: a
+      // declared origin answering `302 Location: http://169.254.169.254/…`
+      // walked the request straight to cloud metadata, or to any internal
+      // service reachable from the server. The allowlist is the plugin's whole
+      // network boundary, so it has to hold for the request that is actually
+      // sent, not merely the one that was requested.
+      let current = url;
+      for (let hop = 0; hop <= MAX_FETCH_REDIRECTS; hop++) {
+        let origin: string;
+        try {
+          origin = new URL(current).origin;
+        } catch {
+          throw new Error(`Plugin "${pluginId}" passed an invalid URL to fetch: "${current}"`);
+        }
+        if (!allowedOrigins.has(origin)) {
+          throw new Error(
+            `Plugin "${pluginId}" may not call "${origin}". ` +
+              `Add it to "network" in laila-plugin.json (declared: ${[...allowedOrigins].join(', ') || 'none'}).`,
+          );
+        }
+
+        const res = await globalThis.fetch(current, { ...init, redirect: 'manual' });
+        if (!REDIRECT_STATUSES.has(res.status)) return res;
+
+        const location = res.headers.get('location');
+        // A 3xx with no Location is the server's problem; hand it back as-is.
+        if (!location) return res;
+        current = new URL(location, current).toString();
       }
-      if (!allowedOrigins.has(origin)) {
-        throw new Error(
-          `Plugin "${pluginId}" may not call "${origin}". ` +
-            `Add it to "network" in laila-plugin.json (declared: ${[...allowedOrigins].join(', ') || 'none'}).`,
-        );
-      }
-      return globalThis.fetch(url, init);
+
+      throw new Error(
+        `Plugin "${pluginId}" exceeded ${MAX_FETCH_REDIRECTS} redirects fetching "${url}".`,
+      );
     },
   };
 

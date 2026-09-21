@@ -201,6 +201,9 @@ export const LabAssignmentPanel = ({
       pdf.text(`LAILA - ${labLabel} Lab Report`, margin, y); y += 8;
       pdf.setFontSize(9); pdf.setFont('helvetica', 'normal');
       pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, y); y += lineH;
+      // Deliberate: jsPDF's core fonts are Latin-1, so non-ASCII must be
+      // folded to a placeholder rather than emitted as mojibake.
+      // eslint-disable-next-line no-control-regex
       pdf.text(`Assignment: ${(assignment.description ?? '-').replace(/[^\x00-\x7F]/g, '-').slice(0, 120)}`, margin, y); y += lineH * 2;
 
       // ── DATASET & CONFIGURATION ──
@@ -346,6 +349,9 @@ export const LabAssignmentPanel = ({
       const pdfBlob = pdf.output('blob') as Blob;
       if (pdfPreviewUrl) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(URL.createObjectURL(pdfBlob));
+      // Deliberate: control characters are exactly what must not reach a
+      // filename — they are how a download name smuggles a newline.
+      // eslint-disable-next-line no-control-regex
       const sanitizeName = (name: string) => name.replace(/[<>:"/\\|?*\x00-\x1f]+/g, '').replace(/\s+/g, '-').replace(/-+$/, '') || 'untitled';
       const safeCourse = sanitizeName(courseName || 'course');
       const safeStudent = sanitizeName(user?.fullname || 'student');

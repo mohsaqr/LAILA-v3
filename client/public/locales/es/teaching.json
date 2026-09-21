@@ -1531,5 +1531,6 @@
   "import_report_warnings": "{{count}} aviso(s): revisa el curso antes de publicarlo",
   "failed_to_export_course": "No se pudo exportar el curso",
   "failed_to_import_course": "No se pudo importar el curso",
-  "failed_to_duplicate_course": "No se pudo duplicar el curso"
+  "failed_to_duplicate_course": "No se pudo duplicar el curso",
+  "dataset_load_failed": "No se pudo cargar ese conjunto de datos. Inténtalo de nuevo."
 }

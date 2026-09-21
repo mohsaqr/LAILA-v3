@@ -26,7 +26,7 @@ vi.mock('../utils/prisma.js', () => ({
     courseRole: { findUnique: vi.fn() },
     enrollment: { findUnique: vi.fn() },
     ltiTool: { findUnique: vi.fn() },
-    ltiLaunch: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
+    ltiLaunch: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), deleteMany: vi.fn() },
   },
 }));
 
@@ -295,12 +295,36 @@ describe('consumeLaunch', () => {
 
   it('redeems a valid launch once', async () => {
     vi.mocked(prisma.ltiLaunch.findUnique).mockResolvedValue(launch as never);
-    vi.mocked(prisma.ltiLaunch.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.ltiLaunch.updateMany).mockResolvedValue({ count: 1 } as never);
     const got = await consumeLaunch('hint1', 'tool1', 42);
     expect(got.courseId).toBe(7);
-    expect(vi.mocked(prisma.ltiLaunch.update).mock.calls[0][0].data).toMatchObject({
+    expect(vi.mocked(prisma.ltiLaunch.updateMany).mock.calls[0][0].data).toMatchObject({
       consumedAt: expect.any(Date),
     });
+  });
+
+  // The read-then-write version of this passed the sequential replay test above
+  // while still allowing two concurrent redemptions to both succeed — two signed
+  // id_tokens for one launch. The claim is now a conditional write, so the
+  // database decides the winner.
+  it('claims the launch with a write conditioned on it being unconsumed', async () => {
+    vi.mocked(prisma.ltiLaunch.findUnique).mockResolvedValue(launch as never);
+    vi.mocked(prisma.ltiLaunch.updateMany).mockResolvedValue({ count: 1 } as never);
+
+    await consumeLaunch('hint1', 'tool1', 42);
+
+    expect(vi.mocked(prisma.ltiLaunch.updateMany).mock.calls[0][0].where).toMatchObject({
+      id: 'hint1',
+      consumedAt: null,
+    });
+  });
+
+  it('refuses the loser of a concurrent redemption', async () => {
+    // Both callers read consumedAt: null; only one conditional write matches.
+    vi.mocked(prisma.ltiLaunch.findUnique).mockResolvedValue(launch as never);
+    vi.mocked(prisma.ltiLaunch.updateMany).mockResolvedValue({ count: 0 } as never);
+
+    await expect(consumeLaunch('hint1', 'tool1', 42)).rejects.toThrow(/already been used/);
   });
 
   it('refuses a missing hint', async () => {

@@ -365,11 +365,20 @@ class CertificateService {
       return { valid: false, message: 'Certificate has expired' };
     }
 
-    // Get user, course, and grades info
+    // Get user, course, and grades info.
+    //
+    // NOTE the select here is deliberately NARROWER than the authenticated
+    // `getCertificate` above. This endpoint is public: anyone holding a
+    // verification code reaches it, and codes travel on printed certificates,
+    // LinkedIn posts and email signatures. Verification needs to answer "is
+    // this real, whose is it, for what course" — it does not need the holder's
+    // email address, so that column is not selected. Adding it back would
+    // publish the address of every certificate holder to anyone who can read
+    // a code. See certificate.service.test.ts, which pins this.
     const [user, course, gradesAgg] = await Promise.all([
       prisma.user.findUnique({
         where: { id: certificate.userId },
-        select: { id: true, fullname: true, email: true, avatarUrl: true },
+        select: { id: true, fullname: true, avatarUrl: true },
       }),
       prisma.course.findUnique({
         where: { id: certificate.courseId },
@@ -394,6 +403,12 @@ class CertificateService {
       }),
     ]);
 
+    // Build the public view field by field rather than forwarding the rows.
+    // The narrow `select` above is the first line of defence; this is the
+    // second. Spreading `user` wholesale meant the payload published whatever
+    // the query happened to return, so widening the select — or adding an
+    // include somewhere upstream — silently widened what the world can read.
+    // Naming each field makes that impossible without editing this literal.
     return {
       valid: true,
       certificate: {
@@ -401,8 +416,16 @@ class CertificateService {
         issueDate: certificate.issueDate,
         verificationCode: certificate.verificationCode,
         template: certificate.template,
-        user,
-        course,
+        user: user
+          ? { id: user.id, fullname: user.fullname, avatarUrl: user.avatarUrl }
+          : null,
+        course: course
+          ? {
+              id: course.id,
+              title: course.title,
+              instructor: course.instructor,
+            }
+          : null,
         grades: gradesAgg,
       },
     };

@@ -251,8 +251,26 @@ export async function collectPersonalData(
       perQuiz.set(q.quizId, next + 1);
     });
 
+    // A Survey row is GLOBAL — it has no courseId, and `ModuleSurvey` is unique
+    // per (module, survey), so one institutional survey is routinely attached in
+    // several courses at once. Filtering on surveyId alone therefore pulled in
+    // every other course's responses, and `roster.note(r.userId)` below then
+    // copied those foreign students' names and email addresses into `people`.
+    //
+    // A response is only exportable if it can be positively attributed to THIS
+    // course: through one of its modules, or — for a post-survey — through one
+    // of its assignments. A response that cannot be attributed (a standalone
+    // run, or a module belonging to someone else's course) is left out rather
+    // than guessed at, because the failure mode of guessing is disclosing a
+    // third party's survey answers.
     const responses = await prisma.surveyResponse.findMany({
-      where: { surveyId: { in: [...scope.surveyIds] } },
+      where: {
+        surveyId: { in: [...scope.surveyIds] },
+        OR: [
+          { moduleId: { in: [...scope.moduleIds] } },
+          { context: 'assignment', contextId: { in: [...scope.assignmentIds] } },
+        ],
+      },
       include: { answers: true },
       orderBy: { id: 'asc' },
     });

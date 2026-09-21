@@ -1531,5 +1531,6 @@
   "import_report_warnings": "{{count}} تحذير(ات) — راجع المقرر قبل النشر",
   "failed_to_export_course": "فشل تصدير المقرر",
   "failed_to_import_course": "فشل استيراد المقرر",
-  "failed_to_duplicate_course": "فشل نسخ المقرر"
+  "failed_to_duplicate_course": "فشل نسخ المقرر",
+  "dataset_load_failed": "تعذّر تحميل مجموعة البيانات. يُرجى المحاولة مرة أخرى."
 }

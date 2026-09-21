@@ -21,6 +21,7 @@ import {
 import toast from 'react-hot-toast';
 import ReactMarkdown from 'react-markdown';
 import { sanitizeHtml, isHtmlContent } from '../utils/sanitize';
+import { parseFileUrls } from '../utils/fileUrls';
 import { displayFileName } from '../utils/fileName';
 import { RichTextEditor } from '../components/forum/RichTextEditor';
 import { resolveFileUrl } from '../api/client';
@@ -69,6 +70,10 @@ export const AssignmentView = () => {
 
   const [content, setContent] = useState('');
   const [fileUrls, setFileUrls] = useState<string[]>([]);
+  // True when the stored list exists but could not be parsed. The form then
+  // omits fileUrls from its payload so the server leaves the column alone,
+  // instead of posting [] and overwriting files it merely failed to display.
+  const [attachmentsUnreadable, setAttachmentsUnreadable] = useState(false);
   const [showSurveyModal, setShowSurveyModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isResubmitting, setIsResubmitting] = useState(false);
@@ -137,14 +142,9 @@ export const AssignmentView = () => {
   useEffect(() => {
     if (mySubmission) {
       setContent(mySubmission.content || '');
-      try {
-        const parsed = mySubmission.fileUrls ? JSON.parse(mySubmission.fileUrls) : [];
-        setFileUrls(Array.isArray(parsed)
-          ? parsed.filter((v): v is string => typeof v === 'string')
-          : []);
-      } catch {
-        setFileUrls([]);
-      }
+      const parsedFiles = parseFileUrls(mySubmission.fileUrls);
+      setFileUrls(parsedFiles.ok ? parsedFiles.urls : []);
+      setAttachmentsUnreadable(!parsedFiles.ok);
     }
   }, [mySubmission]);
 
@@ -180,7 +180,10 @@ export const AssignmentView = () => {
     mutationFn: () =>
       assignmentsApi.submitAssignment(parsedAssignmentId, {
         content,
-        fileUrls,
+        // Omitted (not []) when unreadable: the server treats an absent
+        // fileUrls as "leave the column alone", whereas [] is truthy there and
+        // would stringify to "[]" over the student's real attachments.
+        ...(attachmentsUnreadable ? {} : { fileUrls }),
         status: 'draft',
       }),
     onSuccess: () => {
@@ -194,7 +197,7 @@ export const AssignmentView = () => {
     mutationFn: () =>
       assignmentsApi.submitAssignment(parsedAssignmentId, {
         content,
-        fileUrls,
+        ...(attachmentsUnreadable ? {} : { fileUrls }),
         status: 'submitted',
       }),
     onSuccess: () => {
@@ -720,6 +723,15 @@ export const AssignmentView = () => {
                       accept={assignment.allowedFileTypes || undefined}
                       disabled={!uploadOpen}
                     />
+
+                    {attachmentsUnreadable && (
+                      <p
+                        role="alert"
+                        className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300"
+                      >
+                        {t('common:attachments_unreadable')}
+                      </p>
+                    )}
 
                     {fileUrls.length > 0 && (
                       <div className="mt-4 space-y-2">

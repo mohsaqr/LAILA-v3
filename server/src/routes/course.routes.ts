@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { createLogger } from '../utils/logger.js';
 import { courseService } from '../services/course.service.js';
 import { moduleService } from '../services/module.service.js';
 import { lectureService } from '../services/lecture.service.js';
@@ -29,6 +30,8 @@ import {
   parsePaginationLimit,
 } from '../utils/validation.js';
 import { AuthRequest } from '../types/index.js';
+
+const courseLogger = createLogger('course');
 
 const router = Router();
 
@@ -96,8 +99,18 @@ router.get('/:id', optionalAuth, asyncHandler(async (req: AuthRequest, res: Resp
         tutors = await courseTutorService.getStudentTutors(id, req.user.id, {
           isAdmin: req.user?.isAdmin || req.user?.isInstructor,
         });
-      } catch {
-        // Ignore errors (e.g., no tutors configured)
+      } catch (err) {
+        // NOT "no tutors configured" — that case returns [] from the service
+        // (tutorsEnabled === false), and the only throw it has is a 403 the
+        // enclosing condition already excludes. So anything arriving here is a
+        // real fault, and swallowing it silently made the whole AI-tutor
+        // feature disappear from the course page behind a 200. Still
+        // non-fatal — one broken panel should not take down the course — but
+        // an operator can now see why.
+        courseLogger.error(
+          { err, courseId: id, userId: req.user?.id },
+          'failed to load course tutors; rendering the course without them',
+        );
       }
     }
   }

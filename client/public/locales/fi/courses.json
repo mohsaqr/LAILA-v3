@@ -667,7 +667,7 @@
   "next_question": "Seuraava kysymys",
   "try_again": "Yritä uudelleen",
   "new_questions": "Uudet kysymykset",
-  "score_summary": "Pisteiden yhteenveto",
+  "score_summary": "Sait {{correct}} oikein {{total}} kysymyksestä",
   "questions_completed": "Kysymykset suoritettu",
   "practice_quiz_title": "Harjoituskysely",
   "practice_quiz_description": "Testaa ymmärrystäsi tästä luennosta",

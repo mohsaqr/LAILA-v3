@@ -324,6 +324,13 @@ describe('consumeAuthCode', () => {
     ...overrides,
   });
 
+  // Prisma signals "record not found" with a PrismaClientKnownRequestError
+  // whose `code` is a PROPERTY — not an Error whose message happens to read
+  // "P2025". The distinction matters: consumeAuthCode now narrows on `.code`
+  // so that a pool timeout or a dropped connection is NOT reported to the
+  // relying party as a bad authorization code.
+  const notFound = () => Object.assign(new Error('record not found'), { code: 'P2025' });
+
   it('redeems a valid code once and returns the subject', async () => {
     vi.mocked(prisma.oidcAuthCode.delete).mockResolvedValue(stored() as never);
     const result = await consumeAuthCode('the-code', 'chatoyon', REDIRECT, verifier);
@@ -335,7 +342,7 @@ describe('consumeAuthCode', () => {
   it('deletes before validating, so a replay finds nothing to redeem', async () => {
     vi.mocked(prisma.oidcAuthCode.delete)
       .mockResolvedValueOnce(stored() as never)
-      .mockRejectedValueOnce(new Error('P2025: record not found'));
+      .mockRejectedValueOnce(notFound());
 
     expect(await consumeAuthCode('the-code', 'chatoyon', REDIRECT, verifier)).not.toBeNull();
     expect(await consumeAuthCode('the-code', 'chatoyon', REDIRECT, verifier)).toBeNull();
@@ -348,8 +355,20 @@ describe('consumeAuthCode', () => {
   });
 
   it('rejects an unknown code', async () => {
-    vi.mocked(prisma.oidcAuthCode.delete).mockRejectedValue(new Error('P2025'));
+    vi.mocked(prisma.oidcAuthCode.delete).mockRejectedValue(notFound());
     expect(await consumeAuthCode('nope', 'chatoyon', REDIRECT, verifier)).toBeNull();
+  });
+
+  it('rethrows a database fault instead of reporting it as an invalid code', async () => {
+    // Pool exhaustion during a login spike is exactly when many codes are being
+    // redeemed at once. Answering `invalid_grant` there tells the user their
+    // login is bad and leaves the operator with nothing in the logs.
+    const dbDown = Object.assign(new Error('connect ETIMEDOUT'), { code: 'P1001' });
+    vi.mocked(prisma.oidcAuthCode.delete).mockRejectedValue(dbDown);
+
+    await expect(consumeAuthCode('the-code', 'chatoyon', REDIRECT, verifier)).rejects.toThrow(
+      'connect ETIMEDOUT',
+    );
   });
 
   it('rejects a missing code without touching the database', async () => {

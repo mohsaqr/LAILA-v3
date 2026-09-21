@@ -328,4 +328,60 @@ describe('fetch', () => {
     const { api } = build(['network'], ['https://api.example.org']);
     await expect(api.fetch('not a url')).rejects.toThrow(/invalid URL/);
   });
+
+  // The allowlist is the plugin's entire network boundary. Checking only the
+  // first URL made it advisory: a declared origin could redirect anywhere,
+  // including to link-local cloud metadata.
+  it('refuses a redirect that leaves the declared origins', async () => {
+    const redirect = new Response(null, {
+      status: 302,
+      headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+    });
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(redirect);
+    const { api } = build(['network'], ['https://api.example.org']);
+
+    await expect(api.fetch('https://api.example.org/go')).rejects.toThrow(/may not call/);
+
+    // The forbidden hop must never have been requested.
+    expect(spy.mock.calls.map((c) => String(c[0]))).toEqual(['https://api.example.org/go']);
+    spy.mockRestore();
+  });
+
+  it('never lets the runtime follow redirects on its own', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('ok'));
+    const { api } = build(['network'], ['https://api.example.org']);
+
+    await api.fetch('https://api.example.org/v1/items');
+
+    // redirect:'manual' is what makes the per-hop check possible at all.
+    expect((spy.mock.calls[0][1] as RequestInit).redirect).toBe('manual');
+    spy.mockRestore();
+  });
+
+  it('follows a redirect that stays inside the declared origins', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { location: '/v2/items' } }),
+      )
+      .mockResolvedValueOnce(new Response('ok'));
+    const { api } = build(['network'], ['https://api.example.org']);
+
+    const res = await api.fetch('https://api.example.org/v1/items');
+
+    expect(res.status).toBe(200);
+    // Relative Location resolved against the previous URL.
+    expect(String(spy.mock.calls[1][0])).toBe('https://api.example.org/v2/items');
+    spy.mockRestore();
+  });
+
+  it('gives up rather than looping on a redirect cycle', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(null, { status: 302, headers: { location: 'https://api.example.org/loop' } }),
+    );
+    const { api } = build(['network'], ['https://api.example.org']);
+
+    await expect(api.fetch('https://api.example.org/loop')).rejects.toThrow(/exceeded \d+ redirects/);
+    spy.mockRestore();
+  });
 });

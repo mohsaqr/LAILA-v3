@@ -35,7 +35,11 @@ export interface VerificationResult {
     issueDate: string;
     verificationCode: string;
     template?: { id: number; name: string; templateHtml?: string };
-    user?: { id: number; fullname: string; email: string; avatarUrl?: string | null };
+    /** No `email`, unlike {@link Certificate}. Verification is a PUBLIC
+     *  endpoint — anyone holding the code reaches it — so the server does not
+     *  select the holder's address. Do not add it back here; the field would
+     *  simply be `undefined` at runtime and the type would be lying. */
+    user?: { id: number; fullname: string; avatarUrl?: string | null };
     course?: { id: number; title: string; instructor: { id: number; fullname: string } };
     grades?: { earned: number; total: number };
   };

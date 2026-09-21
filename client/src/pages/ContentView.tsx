@@ -86,14 +86,19 @@ export const ContentView = () => {
     }
   };
 
-  if (isLoading) {
-    return <Loading fullScreen text={t('loading_content')} />;
-  }
-
-  // Determine content source
+  // Determine content source.
+  //
+  // Everything from here to the logging effect below must stay ABOVE the
+  // `isLoading` early return. The effect used to sit after it, so the first
+  // render (query in flight) returned before reaching the hook and the second
+  // render (query settled) called it — one more hook than the render before,
+  // which is the "Rendered more hooks than during the previous render" crash.
+  // It reproduced on any direct visit to /content/lecture/:id — a refresh or a
+  // shared link — where no content arrives via router state and the query
+  // therefore actually runs. `react-hooks/rules-of-hooks` flags it.
   let title = passedTitle;
   let content = passedContent;
-  let contentType = passedType || type;
+  const contentType = passedType || type;
 
   if (type === 'lecture' && lecture && !passedContent) {
     title = lecture.title;
@@ -109,7 +114,8 @@ export const ContentView = () => {
     title
   );
 
-  // Log content view
+  // Log content view. The `content &&` guard already makes this a no-op while
+  // the query is in flight, so hoisting it changes nothing about when it fires.
   useEffect(() => {
     if (content && id) {
       const contentId = parseInt(id, 10);
@@ -117,7 +123,11 @@ export const ContentView = () => {
         activityLogger.logContentViewed(contentId, title, contentType, passedCourseId);
       }
     }
-  }, [id, title, contentType, passedCourseId]);
+  }, [id, title, contentType, passedCourseId, content]);
+
+  if (isLoading) {
+    return <Loading fullScreen text={t('loading_content')} />;
+  }
 
   if (!content) {
     return (

@@ -1536,5 +1536,6 @@
   "import_report_warnings": "{{count}} varoitus(ta) — tarkista kurssi ennen julkaisua",
   "failed_to_export_course": "Kurssin vienti epäonnistui",
   "failed_to_import_course": "Kurssin tuonti epäonnistui",
-  "failed_to_duplicate_course": "Kurssin monistaminen epäonnistui"
+  "failed_to_duplicate_course": "Kurssin monistaminen epäonnistui",
+  "dataset_load_failed": "Tietoaineistoa ei voitu ladata. Yritä uudelleen."
 }

@@ -207,5 +207,6 @@
   "showing_range": "Mostrando {{from}}–{{to}} de {{total}}",
   "duplicate": "Duplicar",
   "plugin_unavailable": "Este contenido necesita un complemento que no está disponible actualmente.",
-  "plugin_widgets": "Paneles de complementos"
+  "plugin_widgets": "Paneles de complementos",
+  "attachments_unreadable": "No se pudo leer la lista de archivos adjuntos de esta entrega, por lo que no se muestran. No se han eliminado."
 }

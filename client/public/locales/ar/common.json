@@ -207,5 +207,6 @@
   "showing_range": "عرض {{from}}–{{to}} من {{total}}",
   "duplicate": "تكرار",
   "plugin_unavailable": "يتطلّب هذا المحتوى إضافة غير متاحة حاليًا.",
-  "plugin_widgets": "لوحات الإضافات"
+  "plugin_widgets": "لوحات الإضافات",
+  "attachments_unreadable": "تعذّرت قراءة قائمة المرفقات لهذا التسليم، لذلك لا تظهر الملفات. لم يتم حذفها."
 }
