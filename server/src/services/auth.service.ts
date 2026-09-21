@@ -453,6 +453,21 @@ export class AuthService {
   private static readonly LOCKOUT_ENABLED = true;
   private static readonly MAX_FAILED_ATTEMPTS = 10;
   private static readonly LOCKOUT_DURATION_MINUTES = 15;
+  // How long a failed attempt counts against you.
+  //
+  // The counter used to reset only on a successful login, or on a failure after
+  // a lock had already lapsed — so it never decayed. Real example from
+  // production: nine failures spread across two weeks of August, then ONE wrong
+  // password in September was the tenth and locked the account instantly. The
+  // person had typed their password twice, not ten times, and nothing in the
+  // product could have told them they were one mistake from a lockout.
+  //
+  // Ageing the counter out over the same window as the lock makes the policy
+  // the one people already assume: ten failures WITHIN fifteen minutes. It
+  // barely moves the brute-force ceiling — an attacker previously got ten
+  // guesses per lock cycle and now gets nine per window, so the "at most ~40
+  // bcrypt-cost-10 guesses an hour per account" above still holds.
+  private static readonly FAILURE_WINDOW_MINUTES = 15;
 
   async login(data: LoginInput, context?: AuthContext) {
     // Find user
@@ -485,6 +500,13 @@ export class AuthService {
     // slate. Leaving the counter at its maximum is what turned the old lockout
     // into a one-guess-per-15-minutes ratchet; see MAX_FAILED_ATTEMPTS above.
     const lockExpired = user.lockedUntil != null && user.lockedUntil <= new Date();
+
+    // A run of failures that has gone quiet for longer than the window is over.
+    // Anything older than this is somebody's forgotten typo, not an attack in
+    // progress, and must not be carried forward.
+    const staleFailures =
+      user.lastFailedLoginAt != null &&
+      Date.now() - user.lastFailedLoginAt.getTime() > AuthService.FAILURE_WINDOW_MINUTES * 60000;
 
     // Check if account is locked. A row locked before the feature was disabled
     // still carries a future lockedUntil, so this must gate on the flag too or
@@ -569,9 +591,15 @@ export class AuthService {
       // Increment failed login attempts. A lapsed lock resets the budget first,
       // so serving a lock costs the user their counter rather than leaving them
       // permanently one wrong password away from the next lock.
-      const newFailedAttempts = (lockExpired ? 0 : user.failedLoginAttempts) + 1;
-      const updateData: { failedLoginAttempts: number; lockedUntil?: Date | null } = {
+      const newFailedAttempts = (lockExpired || staleFailures ? 0 : user.failedLoginAttempts) + 1;
+      const updateData: {
+        failedLoginAttempts: number;
+        lastFailedLoginAt: Date;
+        lockedUntil?: Date | null;
+      } = {
         failedLoginAttempts: newFailedAttempts,
+        // Stamped on every failure: this is what the next attempt ages against.
+        lastFailedLoginAt: new Date(),
       };
 
       // Lock account if max attempts reached
@@ -623,6 +651,7 @@ export class AuthService {
       data: {
         lastLogin: new Date(),
         failedLoginAttempts: 0,
+        lastFailedLoginAt: null,
         lockedUntil: null,
       },
     });
@@ -849,6 +878,9 @@ export class AuthService {
         isConfirmed: true,
         tokenVersion: { increment: 1 },
         failedLoginAttempts: 0,
+        // The documented escape hatch for a locked-out operator: a reset clears
+        // the counter, the lock AND the stamp it ages against.
+        lastFailedLoginAt: null,
         lockedUntil: null,
       },
       select: {

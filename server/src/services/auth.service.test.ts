@@ -1089,6 +1089,87 @@ describe('AuthService', () => {
       expect(result.token).toBeDefined();
     });
 
+    // The counter used to persist forever, so failures months apart added up.
+    // Production log for admin@laila.edu: attempts 1-9 spread across two weeks
+    // of August, then a single wrong password on 21 September was the tenth and
+    // locked the account. The person had typed their password twice.
+    it('does not count failures older than the window', async () => {
+      const longAgo = new Date(Date.now() - 60 * 60 * 1000); // an hour ago
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 9,
+        lastFailedLoginAt: longAgo,
+        lockedUntil: null,
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
+
+      const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as {
+        failedLoginAttempts: number;
+        lockedUntil?: Date | null;
+      };
+      // Counted as the FIRST failure of a new run, not the tenth of an old one.
+      expect(data.failedLoginAttempts).toBe(1);
+      expect(data.lockedUntil).toBeUndefined();
+    });
+
+    it('still locks when the failures are genuinely recent', async () => {
+      const justNow = new Date(Date.now() - 60 * 1000); // a minute ago
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 9,
+        lastFailedLoginAt: justNow,
+        lockedUntil: null,
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
+
+      // Hitting the threshold reports the lock, not a plain bad password.
+      await expect(authService.login(validLogin)).rejects.toThrow(/Account locked/i);
+
+      const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as {
+        failedLoginAttempts: number;
+        lockedUntil?: Date | null;
+      };
+      // The brute-force property has to survive the fix.
+      expect(data.failedLoginAttempts).toBe(10);
+      expect(data.lockedUntil).toBeInstanceOf(Date);
+    });
+
+    it('stamps the time of every failure, so the next attempt can age against it', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
+
+      await expect(authService.login(validLogin)).rejects.toThrow('Invalid credentials');
+
+      const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as {
+        lastFailedLoginAt: Date;
+      };
+      expect(data.lastFailedLoginAt).toBeInstanceOf(Date);
+    });
+
+    it('clears the stamp on a successful login', async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue({
+        ...mockUser,
+        failedLoginAttempts: 4,
+        lastFailedLoginAt: new Date(),
+      } as any);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(prisma.user.update).mockResolvedValue(mockUser as any);
+
+      await authService.login(validLogin);
+
+      const data = vi.mocked(prisma.user.update).mock.calls[0][0].data as {
+        failedLoginAttempts: number;
+        lastFailedLoginAt: Date | null;
+      };
+      expect(data.failedLoginAttempts).toBe(0);
+      expect(data.lastFailedLoginAt).toBeNull();
+    });
+
     it('should increment failed login attempts on wrong password', async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
@@ -1118,7 +1199,9 @@ describe('AuthService', () => {
       // attack; it must read exactly like the first failure.
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { failedLoginAttempts: 5 },
+        // lastFailedLoginAt is stamped on every failure; it is what the next
+        // attempt ages against so old typos cannot accumulate into a lock.
+        data: { failedLoginAttempts: 5, lastFailedLoginAt: expect.any(Date) },
       });
       expect(prisma.user.update).not.toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1168,7 +1251,11 @@ describe('AuthService', () => {
         where: { id: 1 },
         // Counter restarts at 1 (not 11), and the spent timestamp is cleared so
         // it cannot later read as a live lock.
-        data: { failedLoginAttempts: 1, lockedUntil: null },
+        data: {
+          failedLoginAttempts: 1,
+          lastFailedLoginAt: expect.any(Date),
+          lockedUntil: null,
+        },
       });
     });
   });

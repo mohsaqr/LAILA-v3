@@ -26,6 +26,10 @@ model User {
   avatarUrl                   String?                   @map("avatar_url")
   tokenVersion                Int                       @default(0) @map("token_version")
   failedLoginAttempts         Int                       @default(0) @map("failed_login_attempts")
+  /// When the most recent failed sign-in happened, so the attempt counter can
+  /// age out. Without it `failedLoginAttempts` only ever reset on a successful
+  /// login, so typos months apart accumulated into a surprise lockout.
+  lastFailedLoginAt           DateTime?                 @map("last_failed_login_at")
   lockedUntil                 DateTime?                 @map("locked_until")
   createdAt                   DateTime                  @default(now()) @map("created_at")
   lastLogin                   DateTime?                 @map("last_login")
